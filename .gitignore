@@ -1,0 +1,5 @@
+log.out
+test.exe
+test.out
+*.log
+testfile.txt

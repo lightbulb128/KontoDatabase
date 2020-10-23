@@ -126,21 +126,21 @@ KontoResult KontoTableFile::close() {
     return KR_OK;
 }
 
-KontoResult KontoTableFile::insertEntry(KontoRecordPosition* pos) {
+KontoResult KontoTableFile::insertEntry(KontoRPos* pos) {
     int metapid;
     KontoPage meta = pmgr->getPage(fileID, 0, metapid);
-    KontoRecordPosition rec;
+    KontoRPos rec;
     bool found = false;
     for (int i=pageCount-1;i>=1;i--) {
         int rc = meta[POS_PAGES+i-1];
         if ((rc+1) * recordSize >= PAGE_INT_NUM) continue;
-        rec = KontoRecordPosition(i, rc);
+        rec = KontoRPos(i, rc);
         meta[POS_PAGES+i-1] = rc+1;
         found = true; break;
     }
     if (!found) {
         meta[POS_META_PAGECOUNT] = ++pageCount;
-        rec = KontoRecordPosition(pageCount-1, 0);
+        rec = KontoRPos(pageCount-1, 0);
         meta[POS_PAGES+pageCount-2] = 1;
     }
     meta[POS_META_RECORDCOUNT] = ++recordCount;
@@ -156,7 +156,7 @@ KontoResult KontoTableFile::insertEntry(KontoRecordPosition* pos) {
     return KR_OK;
 }
 
-KontoResult KontoTableFile::deleteEntry(KontoRecordPosition& pos) {
+KontoResult KontoTableFile::deleteEntry(KontoRPos& pos) {
     int metapid;
     KontoPage meta = pmgr->getPage(fileID, 0, metapid);
     if (pos.page>=meta[POS_META_PAGECOUNT]) return KR_PAGE_TOO_GREAT;
@@ -169,7 +169,7 @@ KontoResult KontoTableFile::deleteEntry(KontoRecordPosition& pos) {
     return KR_OK;
 }
 
-KontoResult KontoTableFile::checkPosition(KontoRecordPosition& pos) {
+KontoResult KontoTableFile::checkPosition(KontoRPos& pos) {
     int metapid;
     KontoPage meta = pmgr->getPage(fileID, 0, metapid);
     if (pos.page>=meta[POS_META_PAGECOUNT]) return KR_PAGE_TOO_GREAT;
@@ -177,7 +177,7 @@ KontoResult KontoTableFile::checkPosition(KontoRecordPosition& pos) {
     return KR_OK;
 }
 
-uint* KontoTableFile::getDataPointer(KontoRecordPosition& pos, KontoKeyIndex key, bool write = false){
+uint* KontoTableFile::getDataPointer(KontoRPos& pos, KontoKeyIndex key, bool write = false){
     int wrpid;
     KontoPage wr = pmgr->getPage(fileID, pos.page, wrpid);
     uint* ptr = wr + pos.id * recordSize;
@@ -186,52 +186,103 @@ uint* KontoTableFile::getDataPointer(KontoRecordPosition& pos, KontoKeyIndex key
     return ptr;
 }
 
-KontoResult KontoTableFile::editEntry(KontoRecordPosition& pos, KontoKeyIndex key, uint datum) {
+KontoResult KontoTableFile::editEntryInt(KontoRPos& pos, KontoKeyIndex key, int datum) {
     KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keyNames.size()) return KR_UNDEFINED_FIELD;
+    if (keyType[key]!=KT_INT) return KR_TYPE_NOT_MATCHING;
     uint* ptr = getDataPointer(pos, key, true);
-    ptr[0] = datum;
+    *((int*)ptr) = datum;
     return KR_OK;
 }
 
-KontoResult KontoTableFile::readEntry(KontoRecordPosition& pos, KontoKeyIndex key, uint& out) {
+KontoResult KontoTableFile::readEntryInt(KontoRPos& pos, KontoKeyIndex key, int& out) {
     KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keyNames.size()) return KR_UNDEFINED_FIELD;
+    if (keyType[key]!=KT_INT) return KR_TYPE_NOT_MATCHING;
     uint* ptr = getDataPointer(pos, key, false);
-    out = ptr[0];
+    out = *((int*)ptr);
     return KR_OK;
 }
 
-KontoResult KontoTableFile::editEntryFloat(KontoRecordPosition& pos, KontoKeyIndex key, double datum) {
+
+
+KontoResult KontoTableFile::editEntryFloat(KontoRPos& pos, KontoKeyIndex key, double datum) {
     KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keyNames.size()) return KR_UNDEFINED_FIELD;
+    if (keyType[key]!=KT_FLOAT) return KR_TYPE_NOT_MATCHING;
     uint* ptr = getDataPointer(pos, key, true);
     *((double*)ptr) = datum;
     return KR_OK;
 }
 
-KontoResult KontoTableFile::readEntryFloat(KontoRecordPosition& pos, KontoKeyIndex key, double& out) {
+KontoResult KontoTableFile::readEntryFloat(KontoRPos& pos, KontoKeyIndex key, double& out) {
     KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keyNames.size()) return KR_UNDEFINED_FIELD;
+    if (keyType[key]!=KT_FLOAT) return KR_TYPE_NOT_MATCHING;
     uint* ptr = getDataPointer(pos, key, false);
     out = *((double*)ptr);
     return KR_OK;
 }
 
-KontoResult KontoTableFile::editEntryString(KontoRecordPosition& pos, KontoKeyIndex key, char* data) {
+KontoResult KontoTableFile::editEntryString(KontoRPos& pos, KontoKeyIndex key, char* data) {
     KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keyNames.size()) return KR_UNDEFINED_FIELD;
+    if (keyType[key]!=KT_STRING) return KR_TYPE_NOT_MATCHING;
     uint* ptr = getDataPointer(pos, key, true);
     strcpy((char*)ptr, data);
     return KR_OK;
 }
 
-KontoResult KontoTableFile::readEntryString(KontoRecordPosition& pos, KontoKeyIndex key, char* out) {
+KontoResult KontoTableFile::readEntryString(KontoRPos& pos, KontoKeyIndex key, char* out) {
     KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keyNames.size()) return KR_UNDEFINED_FIELD;
+    if (keyType[key]!=KT_STRING) return KR_TYPE_NOT_MATCHING;
     uint* ptr = getDataPointer(pos, key, true);
     strcpy(out, (char*)ptr);
     return KR_OK;
+}
+
+KontoResult KontoTableFile::allEntries(KontoQRes& out) {
+    out = KontoQueryResult();
+    int metapid;
+    KontoPage meta = pmgr->getPage(fileID, 0, metapid);
+    KontoRPos rec;
+    for (int i=1;i<pageCount;i++) {
+        int rc = meta[POS_PAGES+i-1];
+        for (int j=0;j<rc;j++) 
+            out.push(KontoRPos(i, j));
+    }
+    return KR_OK;
+}
+
+KontoResult KontoTableFile::queryEntryInt(KontoQRes& from, KontoKeyIndex key, function<bool(int)> cond, KontoQRes& out) {
+    if (keyType[key]!=KT_INT) return KR_TYPE_NOT_MATCHING; 
+    KontoQRes result;
+    for (auto item : from.items) {
+        uint* ptr = getDataPointer(item, key, false);
+        if (cond(*((int*)ptr))) result.push(item);
+    }
+    out = result;
+}
+
+KontoResult KontoTableFile::queryEntryFloat(KontoQRes& from, KontoKeyIndex key, function<bool(double)> cond, KontoQRes& out) {
+    if (keyType[key]!=KT_FLOAT) return KR_TYPE_NOT_MATCHING; 
+    KontoQRes result;
+    for (auto item : from.items) {
+        uint* ptr = getDataPointer(item, key, false);
+        if (cond(*((double*)ptr))) result.push(item);
+    }
+    out = result;
+}
+
+KontoResult KontoTableFile::queryEntryString(KontoQRes& from, KontoKeyIndex key, function<bool(char*)> cond, KontoQRes& out) {
+    if (keyType[key]!=KT_STRING) return KR_TYPE_NOT_MATCHING; 
+    KontoQRes result;
+    for (auto item : from.items) {
+        uint* ptr = getDataPointer(item, key, false);
+        if (cond((char*)ptr)) result.push(item);
+    }
+    out = result;
 }
 
 KontoResult KontoTableFile::getKeyIndex(const char* key, KontoKeyIndex& out) {
@@ -242,6 +293,59 @@ KontoResult KontoTableFile::getKeyIndex(const char* key, KontoKeyIndex& out) {
             return KR_OK;
         }
     return KR_UNDEFINED_FIELD;
+}
+
+KontoQueryResult::KontoQueryResult(const KontoQRes& r) {
+    clear();
+    for (auto item : r.items) items.push_back(item);
+}
+
+KontoQueryResult KontoQueryResult::join(const KontoQueryResult& b) {
+    KontoQRes ret;
+    int sa = size(), sb = b.size();
+    int i = 0, j = 0;
+    while (i<sa || j<sb) {
+        if (i<sa && j<sb && items[i]==b.items[j]) {
+            ret.push(items[i]); i++; j++;
+        } else if ((i<sa && j<sb && items[i]<b.items[j]) || (j==sb)) {
+            ret.push(items[i]); i++;
+        } else {
+            ret.push(b.items[j]); j++;
+        }
+    }
+    return ret;
+}
+
+KontoQueryResult KontoQueryResult::meet(const KontoQueryResult& b) {
+    KontoQRes ret;
+    int sa = size(), sb = b.size();
+    int i = 0, j = 0;
+    while (i<sa || j<sb) {
+        if (i<sa && j<sb && items[i]==b.items[j]) {
+            ret.push(items[i]); i++; j++;
+        } else if ((i<sa && j<sb && items[i]<b.items[j]) || (j==sb)) {
+            i++;
+        } else {
+            j++;
+        }
+    }
+    return ret;
+}
+
+KontoQueryResult KontoQueryResult::substract(const KontoQueryResult& b) {
+    KontoQRes ret;
+    int sa = size(), sb = b.size();
+    int i = 0, j = 0;
+    while (i<sa || j<sb) {
+        if (i<sa && j<sb && items[i]==b.items[j]) {
+            i++; j++;
+        } else if ((i<sa && j<sb && items[i]<b.items[j]) || (j==sb)) {
+            ret.push(items[i]); i++;
+        } else {
+            j++;
+        }
+    }
+    return ret;
 }
 
 void KontoTableFile::debugtest(){
