@@ -4,18 +4,13 @@
 #include "../filesystem/bufmanager/BufPageManager.h"
 #include "../filesystem/fileio/FileManager.h"
 #include "../KontoConst.h"
+#include "KontoIndex.h"
 #include <vector>
 #include <string>
 #include <functional>
 
 using std::vector;
 using std::string;
-
-typedef BufPageManager KontoPageManager;
-typedef FileManager KontoFileManager;
-typedef unsigned int* KontoPage;
-
-typedef unsigned int KontoKeyIndex; 
 
 // 一条记录在一个表中的位置，用页编号和页中记录编号来表示
 struct KontoRPos {
@@ -60,9 +55,9 @@ typedef KontoQueryResult KontoQRes;
 
 class KontoTableFile {
 private:
-    KontoPageManager* pmgr;
-    KontoFileManager* fmgr;
-    KontoTableFile(KontoPageManager* pManager, KontoFileManager* fManager);
+    BufPageManager* pmgr;
+    FileManager* fmgr;
+    KontoTableFile(BufPageManager* pManager, FileManager* fManager);
     bool fieldDefined; // 当前表的属性是否已经定义
     vector<uint> keyPosition; // 记录各个属性在一条记录中对应的位置
     vector<uint> keySize; // 记录各个属性的空间（以int大小=4为单位）
@@ -76,9 +71,9 @@ private:
 public:
     ~KontoTableFile();
     // 创建新的表。创建后应该调用defineField声明各个属性，finishDefineField结束声明。
-    static KontoResult createFile(const char* filename, KontoTableFile** handle, KontoPageManager* pManager, KontoFileManager* fManager);
+    static KontoResult createFile(string filename, KontoTableFile** handle, BufPageManager* pManager, FileManager* fManager);
     // 载入已有的表文件。
-    static KontoResult loadFile(const char* filename, KontoTableFile** handle, KontoPageManager* pManager, KontoFileManager* fManager);
+    static KontoResult loadFile(string filename, KontoTableFile** handle, BufPageManager* pManager, FileManager* fManager);
     // 检查一个记录位置是否有效。
     KontoResult checkPosition(KontoRPos& pos);
     // 获取指向记录位置数据的指针，并指出接下来是读取还是写入。
@@ -115,6 +110,12 @@ public:
     KontoResult allEntries(KontoQRes& out);
     // 获取某属性对应的属性编号。
     KontoResult getKeyIndex(const char* key, KontoKeyIndex& out);
+
+    uint getRecordSize();
+
+    KontoResult getDataCopied(KontoRPos& pos, uint* dest);
+    
+    KontoResult createIndex(vector<KontoKeyIndex>& keys, KontoIndex** handle);
     void debugtest();
 };
 

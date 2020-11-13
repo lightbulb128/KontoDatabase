@@ -23,14 +23,14 @@ struct KontoIPos {
 
 class KontoIndex {
 private:
-    KontoPageManager* pmgr;
-    KontoFileManager* fmgr;
+    BufPageManager* pmgr;
+    FileManager* fmgr;
     vector<KontoKeyType> keyTypes;
     vector<uint> keyPositions;
     vector<uint> keySizes;
     string filename;
     uint indexSize;
-    KontoIndex(KontoPageManager* Pmgr, KontoFileManager* Fmgr);
+    KontoIndex(BufPageManager* Pmgr, FileManager* Fmgr);
     int fileID;
     int pageCount;
     static int compare(uint* d1, uint* d2, KontoKeyType type);
@@ -43,15 +43,19 @@ private:
     KontoRPos getRPos(KontoIPos& pos);
     KontoResult getNext(KontoIPos& pos, KontoIPos& out);
 public:
-    static KontoResult createIndex(const char* filename, KontoIndex** handle, KontoPageManager* pManager, KontoFileManager* fManager, 
+    static KontoResult createIndex(string filename, KontoIndex** handle, BufPageManager* pManager, FileManager* fManager, 
         vector<KontoKeyType> ktypes, vector<uint> kposs, vector<uint> ksizes);
-    static KontoResult loadIndex(const char* filename, KontoIndex** handle, KontoPageManager* pManager, KontoFileManager* fManager);
-    static const char* getIndexFilename(const char* database, vector<string> keyNames); 
+    static KontoResult loadIndex(string filename, KontoIndex** handle, BufPageManager* pManager, FileManager* fManager);
+    static string getIndexFilename(string database, vector<string> keyNames); 
     KontoResult insert(uint* record, KontoRPos& pos);
     KontoResult remove(uint* record); // TODO: delete unique
     KontoResult queryLE(uint* record, KontoRPos& out); // 返回不大于key的最大记录
     KontoResult queryL(uint* record, KontoRPos& out);
     KontoResult close();
+
+    void debugPrintKey(uint* ptr);
+    void debugPrintPage(int pageID);
+    void debugPrint();
 };
 
 #endif

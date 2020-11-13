@@ -3,6 +3,14 @@
 
 typedef unsigned int uint;
 
+typedef unsigned int* KontoPage;
+typedef unsigned int KontoKeyIndex; 
+typedef unsigned int KontoKeyType;
+
+struct KontoRPos;
+
+class KontoIndex;
+
 enum KontoResult {
     // META
     KR_ERROR                    = 0x00000000,
@@ -24,15 +32,12 @@ enum KontoResult {
     KR_LAST_IPOS                = 0x00000202
 };
 
-typedef unsigned int KontoKeyType;
-
 const KontoKeyType KT_INT        = 0x0;
 const KontoKeyType KT_STRING     = 0x1;
 const KontoKeyType KT_FLOAT      = 0x2;
 
-const char * get_filename(const char* filename) {
-    string p = filename;
-    return (p+".txt").c_str();
-}
+string get_filename(string filename);
+
+void debug_assert(bool assertion, std::string message);
 
 #endif

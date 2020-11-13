@@ -1,6 +1,7 @@
 #include "KontoIndex.h"
 #include "../KontoConst.h"
 #include <assert.h>
+#include <memory.h>
 
 /*
 第 0 页，
@@ -38,13 +39,13 @@ const uint POS_PAGE_DATA        = 0x0040;
 
 const uint FLAGS_DELETED        = 0x00000001;
 
-KontoIndex::KontoIndex(KontoPageManager* Pmgr, KontoFileManager* Fmgr):
+KontoIndex::KontoIndex(BufPageManager* Pmgr, FileManager* Fmgr):
     pmgr(Pmgr), fmgr(Fmgr) {}
 
 KontoResult KontoIndex::createIndex(
-    const char* filename, KontoIndex** handle, 
-    KontoPageManager* pManager, 
-    KontoFileManager* fManager, 
+    string filename, KontoIndex** handle, 
+    BufPageManager* pManager, 
+    FileManager* fManager, 
     vector<KontoKeyType> ktypes, vector<uint> kposs, vector<uint> ksizes)
 {
     if (handle==nullptr) return KR_NULL_PTR;
@@ -53,10 +54,12 @@ KontoResult KontoIndex::createIndex(
     ret->keyTypes = ktypes; 
     ret->keyPositions = kposs;
     ret->keySizes = ksizes;
-    if (!ret->fmgr->createFile(get_filename(filename))) 
+    string fullFilename = get_filename(filename);
+    if (!ret->fmgr->createFile(fullFilename.c_str())) 
         return KR_FILE_CREATE_FAIL;
-    if (!ret->fmgr->openFile(get_filename(filename), ret->fileID)) 
+    if (!ret->fmgr->openFile(fullFilename.c_str(), ret->fileID)) 
         return KR_FILE_OPEN_FAIL;
+    cout << "INDEX FILEID=" << ret->fileID << endl;
     int bufindex;
     ret->filename = filename;
     KontoPage metapage = ret->pmgr->getPage(ret->fileID, 0, bufindex);
@@ -83,12 +86,13 @@ KontoResult KontoIndex::createIndex(
 }
 
 KontoResult KontoIndex::loadIndex(
-    const char* filename, KontoIndex** handle, 
-    KontoPageManager* pManager, KontoFileManager* fManager)
+    string filename, KontoIndex** handle, 
+    BufPageManager* pManager, FileManager* fManager)
 {
     if (handle==nullptr) return KR_NULL_PTR;
     KontoIndex* ret = new KontoIndex(pManager, fManager);
-    if (!ret->fmgr->openFile(get_filename(filename), ret->fileID)) return KR_FILE_OPEN_FAIL;
+    string fullFilename = get_filename(filename);
+    if (!ret->fmgr->openFile(fullFilename.c_str(), ret->fileID)) return KR_FILE_OPEN_FAIL;
     int bufindex;
     ret->filename = filename;
     KontoPage metapage = ret->pmgr->getPage(ret->fileID, 0, bufindex);
@@ -109,12 +113,12 @@ KontoResult KontoIndex::loadIndex(
 }
 
 
-const char* KontoIndex::getIndexFilename(const char* database, vector<string> keyNames) {
+string KontoIndex::getIndexFilename(string database, vector<string> keyNames) {
     string ret = string(database) + ".index";
     for (auto p : keyNames) {
         ret += "." + p;
     }
-    return ret.c_str();
+    return ret;
 }
 
 int KontoIndex::compare(uint* d1, uint* d2, KontoKeyType type) {
@@ -305,18 +309,24 @@ KontoResult KontoIndex::split(uint pageID) {
 }
 
 KontoResult KontoIndex::insertRecur(uint* record, KontoRPos& pos, uint pageID) {
+    cout << "insertRecur pos=(" << pos.page << "," << pos.id << ")" << " pageid=" << pageID << endl; 
     int bufindex;
     KontoPage page = pmgr->getPage(fileID, pageID, bufindex);
+    cout << "fileid = " << fileID << "pageid = " << pageID << endl;
+    cout << "got page = " << page << endl;
     uint nodetype = page[POS_PAGE_NODETYPE];
     uint childcount = page[POS_PAGE_CHILDCOUNT];
+    cout << "get nodetype=" << nodetype << ", childcount=" << childcount << endl;
     if (nodetype == NODETYPE_LEAF) {
         uint iter = 0;
+        cout << "before iteration" << endl;
         while (true) {
             if (iter>=childcount) break;
             uint* indexData = page+POS_PAGE_DATA+iter*(3+indexSize)+3;
             if (compare(record, indexData) < 0) break;
             iter++;
         }
+        cout << "iter = " << iter << " before memmove" << endl;
         memmove(
             page + POS_PAGE_DATA + (iter+1) * (3+indexSize), 
             page + POS_PAGE_DATA + iter * (3+indexSize), 
@@ -447,3 +457,76 @@ KontoResult KontoIndex::close() {
     pmgr->closeFile(fileID);
     return KR_OK;
 }
+
+void KontoIndex::debugPrintKey(uint* ptr) {
+    printf("(");
+    int kc = keyPositions.size();
+    int indexpos = 0;
+    for (int i=0;i<kc;i++) {
+        if (i!=0) printf(", ");
+        switch (keyTypes[i]) {
+            case KT_INT:
+                printf("%d", *((int*)(ptr+indexpos))); break;
+            case KT_FLOAT:
+                printf("%lf", *((double*)(ptr+indexpos))); break;
+            case KT_STRING:
+                printf("%s", (char*)(ptr+indexpos)); break;
+            default:
+                printf("BADTYPE");
+        }
+        indexpos += keySizes[i];
+    }
+    printf(")");
+}
+
+void KontoIndex::debugPrint() {
+    int metaBufIndex;
+    KontoPage metaPage = pmgr->getPage(fileID, 0, metaBufIndex);
+    printf("=============[(%d) Filename: ", fileID); cout << filename << "]=============" << endl;
+    printf("PageCount = %d\n", pageCount);
+    assert(pageCount == metaPage[POS_META_PAGECOUNT]);
+    printf("KeyCount = %d\n", keyPositions.size());
+    assert(keyPositions.size() == metaPage[POS_META_KEYCOUNT]);
+    printf("IndexSize = %d\n", indexSize);
+    printf("Keyfields: \n");
+    for (int i=0;i<keyPositions.size(); i++) {
+        printf("    [%d] type=%d, pos=%d, size=%d\n",
+            i, keyTypes[i], keyPositions[i], keySizes[i]);
+        assert(keyTypes[i] == metaPage[POS_META_KEYFIELDS + i * 3 + 0]);
+        assert(keyPositions[i] == metaPage[POS_META_KEYFIELDS + i * 3 + 1]);
+        assert(keySizes[i] == metaPage[POS_META_KEYFIELDS + i * 3 + 2]);
+    }
+    printf("\n");
+    debugPrintPage(1);
+}
+
+void KontoIndex::debugPrintPage(int pageID) {
+    int pageBufIndex;
+    KontoPage page = pmgr->getPage(fileID, pageID, pageBufIndex);
+    printf("-----[PageId: %d]-----\n", pageID);
+    printf("NodeType = %d\n", page[POS_PAGE_NODETYPE]);
+    printf("ChildCount = %d\n", page[POS_PAGE_CHILDCOUNT]);
+    printf("PrevBroPage = %d, NextBroPage = %d\n", page[POS_PAGE_PREV], page[POS_PAGE_NEXT]);
+    printf("ParentPage = %d\n", page[POS_PAGE_PARENT]);
+    int cnt = page[POS_PAGE_CHILDCOUNT];
+    int type = page[POS_PAGE_NODETYPE];
+    for (int i=0;i<cnt;i++) {
+        if (type==NODETYPE_INNER) {
+            printf("    [%d] page=%d, key=", i, page[POS_PAGE_DATA + i * (1+indexSize)]); 
+            debugPrintKey(page + POS_PAGE_DATA + i * (1+indexSize) + 1);
+            printf("\n");
+        } else {
+            printf("    [%d] rpos=(%d,%d), del=%d, key=", 
+                i, page[POS_PAGE_DATA + i * (3+indexSize)], 
+                page[POS_PAGE_DATA + i * (3+indexSize) + 1],
+                page[POS_PAGE_DATA + i * (3+indexSize) + 2]);
+            debugPrintKey(page + POS_PAGE_DATA + i*(3+indexSize) + 3);
+            printf("\n");
+        }
+    }
+    printf("\n");
+    if (type==NODETYPE_INNER) {
+        for (int i=0;i<cnt;i++) 
+            debugPrintPage(page[POS_PAGE_DATA + i * (1+indexSize)]);
+    }
+} 

@@ -30,7 +30,7 @@ const uint POS_PAGES             = 0x00000600;
 const uint FLAGS_DELETED         = 0x00000001;
 
 
-KontoTableFile::KontoTableFile(KontoPageManager* pManager, KontoFileManager* fManager) : pmgr(pManager), fmgr(fManager) {
+KontoTableFile::KontoTableFile(BufPageManager* pManager, FileManager* fManager) : pmgr(pManager), fmgr(fManager) {
     fieldDefined = false;
     keyPosition = vector<uint>();
     keySize = vector<uint>();
@@ -40,18 +40,20 @@ KontoTableFile::KontoTableFile(KontoPageManager* pManager, KontoFileManager* fMa
 KontoTableFile::~KontoTableFile() {}
 
 KontoResult KontoTableFile::createFile(
-        const char* filename, 
+        string filename, 
         KontoTableFile** handle, 
-        KontoPageManager* pManager, 
-        KontoFileManager* fManager) {
+        BufPageManager* pManager, 
+        FileManager* fManager) {
     if (handle==nullptr) return KR_NULL_PTR;
+    string fullFilename = get_filename(filename);
     KontoTableFile* ret = new KontoTableFile(pManager, fManager);
-    if (!ret->fmgr->createFile(get_filename(filename))) return KR_FILE_CREATE_FAIL;
-    if (!ret->fmgr->openFile(get_filename(filename), ret->fileID)) return KR_FILE_OPEN_FAIL;
+    if (!ret->fmgr->createFile(fullFilename.c_str())) return KR_FILE_CREATE_FAIL;
+    if (!ret->fmgr->openFile(fullFilename.c_str(), ret->fileID)) return KR_FILE_OPEN_FAIL;
     int bufindex; 
+    cout << "TABLE FILEID=" << ret->fileID << endl;
     ret->filename = filename;
     KontoPage metapage = ret->pmgr->getPage(ret->fileID, 0, bufindex);
-    strcpy((char*)(metapage+POS_FILENAME), filename);
+    strcpy((char*)(metapage+POS_FILENAME), filename.c_str());
     ret->pageCount = metapage[POS_META_PAGECOUNT] = 1;
     ret->recordCount = metapage[POS_META_RECORDCOUNT] = 0;
     metapage[POS_META_EXISTCOUNT] = 0;
@@ -63,13 +65,15 @@ KontoResult KontoTableFile::createFile(
 }
 
 KontoResult KontoTableFile::loadFile(
-        const char* filename, 
+        string filename, 
         KontoTableFile** handle, 
-        KontoPageManager* pManager, 
-        KontoFileManager* fManager) {
+        BufPageManager* pManager, 
+        FileManager* fManager) {
     if (handle==nullptr) return KR_NULL_PTR;
     KontoTableFile* ret = new KontoTableFile(pManager, fManager);
-    if (!ret->fmgr->openFile(get_filename(filename), ret->fileID)) return KR_FILE_OPEN_FAIL;
+    ret->filename = filename;
+    string fullFilename = get_filename(filename);
+    if (!ret->fmgr->openFile(fullFilename.c_str(), ret->fileID)) return KR_FILE_OPEN_FAIL;
     int bufindex;
     ret->filename = filename;
     KontoPage metapage = ret->pmgr->getPage(ret->fileID, 0, bufindex);
@@ -188,6 +192,16 @@ uint* KontoTableFile::getDataPointer(KontoRPos& pos, KontoKeyIndex key, bool wri
     return ptr;
 }
 
+uint KontoTableFile::getRecordSize() {return recordSize;}
+
+KontoResult KontoTableFile::getDataCopied(KontoRPos& pos, uint* dest) {
+    int wrpid;
+    KontoPage wr = pmgr->getPage(fileID, pos.page, wrpid);
+    uint* ptr = wr + pos.id * recordSize;
+    memcpy(dest, ptr, 4*recordSize);
+    return KR_OK;
+}
+
 KontoResult KontoTableFile::editEntryInt(KontoRPos& pos, KontoKeyIndex key, int datum) {
     KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keyNames.size()) return KR_UNDEFINED_FIELD;
@@ -205,8 +219,6 @@ KontoResult KontoTableFile::readEntryInt(KontoRPos& pos, KontoKeyIndex key, int&
     out = *((int*)ptr);
     return KR_OK;
 }
-
-
 
 KontoResult KontoTableFile::editEntryFloat(KontoRPos& pos, KontoKeyIndex key, double datum) {
     KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
@@ -265,6 +277,7 @@ KontoResult KontoTableFile::queryEntryInt(KontoQRes& from, KontoKeyIndex key, fu
         if (cond(*((int*)ptr))) result.push(item);
     }
     out = result;
+    return KR_OK;
 }
 
 KontoResult KontoTableFile::queryEntryFloat(KontoQRes& from, KontoKeyIndex key, function<bool(double)> cond, KontoQRes& out) {
@@ -275,6 +288,7 @@ KontoResult KontoTableFile::queryEntryFloat(KontoQRes& from, KontoKeyIndex key, 
         if (cond(*((double*)ptr))) result.push(item);
     }
     out = result;
+    return KR_OK;
 }
 
 KontoResult KontoTableFile::queryEntryString(KontoQRes& from, KontoKeyIndex key, function<bool(char*)> cond, KontoQRes& out) {
@@ -285,6 +299,7 @@ KontoResult KontoTableFile::queryEntryString(KontoQRes& from, KontoKeyIndex key,
         if (cond((char*)ptr)) result.push(item);
     }
     out = result;
+    return KR_OK;
 }
 
 KontoResult KontoTableFile::getKeyIndex(const char* key, KontoKeyIndex& out) {
@@ -354,4 +369,22 @@ void KontoTableFile::debugtest(){
     cout << "recordsize=" << recordSize << endl;
     cout << "recordcount=" << recordCount << endl;
     cout << "pagecount=" << pageCount << endl;
+}
+
+KontoResult KontoTableFile::createIndex(vector<KontoKeyIndex>& keys, KontoIndex** handle) {
+    vector<string> opt = vector<string>();
+    vector<uint> kpos = vector<uint>();
+    vector<uint> ktype = vector<KontoKeyType>();
+    vector<uint> ksize = vector<uint>();
+    for (auto key: keys) {
+        opt.push_back(keyNames[key]);
+        kpos.push_back(keyPosition[key]);
+        ktype.push_back(keyType[key]);
+        ksize.push_back(keySize[key]);
+    }
+    string indexFilename = KontoIndex::getIndexFilename(filename, opt);
+    KontoResult result = KontoIndex::createIndex(
+        indexFilename, handle, pmgr, fmgr,
+        ktype, kpos, ksize);
+    return result;
 }
