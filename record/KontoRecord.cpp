@@ -46,9 +46,10 @@ KontoResult KontoTableFile::createFile(
         KontoFileManager* fManager) {
     if (handle==nullptr) return KR_NULL_PTR;
     KontoTableFile* ret = new KontoTableFile(pManager, fManager);
-    if (!ret->fmgr->createFile(filename)) return KR_FILE_CREATE_FAIL;
-    if (!ret->fmgr->openFile(filename, ret->fileID)) return KR_FILE_OPEN_FAIL;
-    int bufindex;
+    if (!ret->fmgr->createFile(get_filename(filename))) return KR_FILE_CREATE_FAIL;
+    if (!ret->fmgr->openFile(get_filename(filename), ret->fileID)) return KR_FILE_OPEN_FAIL;
+    int bufindex; 
+    ret->filename = filename;
     KontoPage metapage = ret->pmgr->getPage(ret->fileID, 0, bufindex);
     strcpy((char*)(metapage+POS_FILENAME), filename);
     ret->pageCount = metapage[POS_META_PAGECOUNT] = 1;
@@ -68,8 +69,9 @@ KontoResult KontoTableFile::loadFile(
         KontoFileManager* fManager) {
     if (handle==nullptr) return KR_NULL_PTR;
     KontoTableFile* ret = new KontoTableFile(pManager, fManager);
-    if (!ret->fmgr->openFile(filename, ret->fileID)) return KR_FILE_OPEN_FAIL;
+    if (!ret->fmgr->openFile(get_filename(filename), ret->fileID)) return KR_FILE_OPEN_FAIL;
     int bufindex;
+    ret->filename = filename;
     KontoPage metapage = ret->pmgr->getPage(ret->fileID, 0, bufindex);
     cout << (char*)metapage << endl;
     ret->fieldDefined = true;

@@ -3,7 +3,7 @@
 
 #include "../filesystem/bufmanager/BufPageManager.h"
 #include "../filesystem/fileio/FileManager.h"
-#include "../KontConst.h"
+#include "../KontoConst.h"
 #include <vector>
 #include <string>
 #include <functional>
@@ -72,6 +72,7 @@ private:
     int fileID;
     int pageCount; // 页的数量
     int recordSize; // 一条记录所占用空间大小（以int=4为单位）
+    string filename;
 public:
     ~KontoTableFile();
     // 创建新的表。创建后应该调用defineField声明各个属性，finishDefineField结束声明。
