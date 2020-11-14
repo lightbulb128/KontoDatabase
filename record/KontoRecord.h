@@ -1,8 +1,6 @@
 #ifndef KONTORECORD_H
 #define KONTORECORD_H
 
-#include "../filesystem/bufmanager/BufPageManager.h"
-#include "../filesystem/fileio/FileManager.h"
 #include "../KontoConst.h"
 #include "KontoIndex.h"
 #include <vector>
@@ -11,6 +9,7 @@
 
 using std::vector;
 using std::string;
+using std::function;
 
 // 一条记录在一个表中的位置，用页编号和页中记录编号来表示
 struct KontoRPos {
@@ -22,12 +21,14 @@ struct KontoRPos {
     // 主关键字为页编号，次关键字为页中记录编号
     bool operator <(const KontoRPos& b){return page<b.page || (page==b.page && id<b.id);}
     bool operator ==(const KontoRPos& b){return page==b.page && id==b.id;}
+    bool operator !=(const KontoRPos& b){return page!=b.page || id!=b.id;}
 };
 
 // 查询结果，用向量实现。应保持严格升序。
 struct KontoQueryResult {
 private:
     friend class KontoTableFile;
+    friend class KontoIndex;
     // 应当保持严格升序，主关键字page，副关键字id
     vector<KontoRPos> items;
     // 向末尾插入
@@ -55,25 +56,26 @@ typedef KontoQueryResult KontoQRes;
 
 class KontoTableFile {
 private:
-    BufPageManager* pmgr;
-    FileManager* fmgr;
-    KontoTableFile(BufPageManager* pManager, FileManager* fManager);
+    BufPageManager& pmgr;
+    KontoTableFile();
     bool fieldDefined; // 当前表的属性是否已经定义
     vector<uint> keyPosition; // 记录各个属性在一条记录中对应的位置
     vector<uint> keySize; // 记录各个属性的空间（以int大小=4为单位）
     vector<KontoKeyType> keyType; // 各个属性的类别
     vector<string> keyNames; // 各个属性的名称
+    vector<KontoIndex*> indices;
     uint recordCount; // 当前表中的记录条数（包括已删除的）
     int fileID;
     int pageCount; // 页的数量
     int recordSize; // 一条记录所占用空间大小（以int=4为单位）
     string filename;
+    void loadIndices(); 
 public:
     ~KontoTableFile();
     // 创建新的表。创建后应该调用defineField声明各个属性，finishDefineField结束声明。
-    static KontoResult createFile(string filename, KontoTableFile** handle, BufPageManager* pManager, FileManager* fManager);
+    static KontoResult createFile(string filename, KontoTableFile** handle);
     // 载入已有的表文件。
-    static KontoResult loadFile(string filename, KontoTableFile** handle, BufPageManager* pManager, FileManager* fManager);
+    static KontoResult loadFile(string filename, KontoTableFile** handle);
     // 检查一个记录位置是否有效。
     KontoResult checkPosition(KontoRPos& pos);
     // 获取指向记录位置数据的指针，并指出接下来是读取还是写入。
@@ -116,6 +118,27 @@ public:
     KontoResult getDataCopied(KontoRPos& pos, uint* dest);
     
     KontoResult createIndex(vector<KontoKeyIndex>& keys, KontoIndex** handle);
+    
+    void removeIndices();
+
+    KontoResult insertIndex(KontoRPos& pos);
+
+    KontoResult deleteIndex(KontoRPos& pos);
+
+    KontoResult recreateIndices();
+
+    KontoIndex* getIndex(uint id);
+
+    void printRecord(uint* record);
+
+    void printRecord(KontoRPos& pos);
+
+    KontoResult setEntryInt(uint* record, KontoKeyIndex key, int datum);
+    
+    KontoResult setEntryString(uint* record, KontoKeyIndex key, const char* data);
+
+    KontoResult setEntryFloat(uint* record, KontoKeyIndex key, double datum);
+
     void debugtest();
 };
 

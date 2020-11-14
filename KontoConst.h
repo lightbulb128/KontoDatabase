@@ -1,6 +1,16 @@
 #ifndef KONTOCONST_H
 #define KONTOCONST_H
 
+#include <iostream>
+#include <string>
+#include <vector>
+
+using std::cout;
+using std::endl;
+using std::string;
+
+#include "io/BufPageManager.h"
+
 typedef unsigned int uint;
 
 typedef unsigned int* KontoPage;
@@ -38,6 +48,14 @@ const KontoKeyType KT_FLOAT      = 0x2;
 
 string get_filename(string filename);
 
+string strip_filename(string filename);
+
 void debug_assert(bool assertion, std::string message);
+
+std::vector<string> get_files(string prefix);
+
+std::vector<string> get_index_key_names(string fullFilename);
+
+void remove_file(string filename);
 
 #endif

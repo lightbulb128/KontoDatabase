@@ -39,31 +39,30 @@ const uint POS_PAGE_DATA        = 0x0040;
 
 const uint FLAGS_DELETED        = 0x00000001;
 
-KontoIndex::KontoIndex(BufPageManager* Pmgr, FileManager* Fmgr):
-    pmgr(Pmgr), fmgr(Fmgr) {}
+//const uint SPLIT_UPPERBOUND     = PAGE_INT_NUM;
+const uint SPLIT_UPPERBOUND = 120;
+
+KontoIndex::KontoIndex():
+    pmgr(BufPageManager::getInstance()) {}
 
 KontoResult KontoIndex::createIndex(
-    string filename, KontoIndex** handle, 
-    BufPageManager* pManager, 
-    FileManager* fManager, 
+    string filename, KontoIndex** handle,
     vector<KontoKeyType> ktypes, vector<uint> kposs, vector<uint> ksizes)
 {
     if (handle==nullptr) return KR_NULL_PTR;
     if (ktypes.size() == 0) return KR_EMPTY_KEYLIST;
-    KontoIndex* ret = new KontoIndex(pManager, fManager);
+    KontoIndex* ret = new KontoIndex();
     ret->keyTypes = ktypes; 
     ret->keyPositions = kposs;
     ret->keySizes = ksizes;
     string fullFilename = get_filename(filename);
-    if (!ret->fmgr->createFile(fullFilename.c_str())) 
-        return KR_FILE_CREATE_FAIL;
-    if (!ret->fmgr->openFile(fullFilename.c_str(), ret->fileID)) 
-        return KR_FILE_OPEN_FAIL;
-    cout << "INDEX FILEID=" << ret->fileID << endl;
+    ret->pmgr.getFileManager().createFile(fullFilename.c_str());
+    ret->fileID = ret->pmgr.getFileManager().openFile(fullFilename.c_str());
+    //cout << "INDEX FILEID=" << ret->fileID << endl;
     int bufindex;
     ret->filename = filename;
-    KontoPage metapage = ret->pmgr->getPage(ret->fileID, 0, bufindex);
-    ret->pmgr->markDirty(bufindex);
+    KontoPage metapage = ret->pmgr.getPage(ret->fileID, 0, bufindex);
+    ret->pmgr.markDirty(bufindex);
     int n = ret->keyPositions.size();
     metapage[POS_META_KEYCOUNT] = n;
     ret->pageCount = metapage[POS_META_PAGECOUNT] = 2;
@@ -74,30 +73,33 @@ KontoResult KontoIndex::createIndex(
         metapage[POS_META_KEYFIELDS + i * 3 + 2] = ret->keySizes[i];
         ret->indexSize += ret->keySizes[i];
     }
-    KontoPage rootpage = ret->pmgr->getPage(ret->fileID, 1, bufindex);
-    ret->pmgr->markDirty(bufindex);
+    KontoPage rootpage = ret->pmgr.getPage(ret->fileID, 1, bufindex);
+    ret->pmgr.markDirty(bufindex);
     rootpage[POS_PAGE_CHILDCOUNT] = 0;
     rootpage[POS_PAGE_NODETYPE] = NODETYPE_LEAF;
     rootpage[POS_PAGE_PREV] = 0;
     rootpage[POS_PAGE_NEXT] = 0;
     rootpage[POS_PAGE_PARENT] = 0;
-    *handle = ret;
+    if (handle) *handle = ret;
     return KR_OK;
 }
 
 KontoResult KontoIndex::loadIndex(
-    string filename, KontoIndex** handle, 
-    BufPageManager* pManager, FileManager* fManager)
+    string filename, KontoIndex** handle)
 {
+    //cout << "load index, filename = " << filename << endl;
     if (handle==nullptr) return KR_NULL_PTR;
-    KontoIndex* ret = new KontoIndex(pManager, fManager);
+    KontoIndex* ret = new KontoIndex();
     string fullFilename = get_filename(filename);
-    if (!ret->fmgr->openFile(fullFilename.c_str(), ret->fileID)) return KR_FILE_OPEN_FAIL;
+    ret->fileID = ret->pmgr.getFileManager().openFile(fullFilename.c_str());
     int bufindex;
     ret->filename = filename;
-    KontoPage metapage = ret->pmgr->getPage(ret->fileID, 0, bufindex);
+    KontoPage metapage = ret->pmgr.getPage(ret->fileID, 0, bufindex);
+    //cout << "got page" << endl;
     ret->pageCount = metapage[POS_META_PAGECOUNT];
     int n = metapage[POS_META_KEYCOUNT];
+    //cout << "page count = " << ret->pageCount << endl;
+    //cout << "key count = " << n << endl;
     ret->keyPositions = vector<uint>();
     ret->keySizes = vector<uint>();
     ret->keyTypes = vector<KontoKeyType>();
@@ -146,9 +148,18 @@ int KontoIndex::compare(uint* record, uint* index) {
     int n = keySizes.size();
     int indexPos = 0;
     for (int i=0;i<n;i++) {
-        int c = compare(record + keyPositions[i], index + indexPos);
+        int c = compare(record + keyPositions[i], index + indexPos, keyTypes[i]);
         if (c!=0) return c;
         indexPos += keySizes[i];
+    }
+    return 0;
+}
+
+int KontoIndex::compareRecords(uint* r1, uint* r2) {
+    int n = keySizes.size();
+    for (int i=0;i<n;i++) {
+        int c = compare(r1 + keyPositions[i], r2 + keyPositions[i], keyTypes[i]);
+        if (c!=0) return c;
     }
     return 0;
 }
@@ -156,19 +167,23 @@ int KontoIndex::compare(uint* record, uint* index) {
 void KontoIndex::setKey(uint* dest, uint* record, KontoRPos& pos) {
     int n = keySizes.size();
     int indexPos = 0;
-    for (int i=0;i<n;i++) 
-        dest[3+indexPos] = record[keyPositions[i]];
+    for (int i=0;i<n;i++) {
+        for (int j=0;j<keySizes[i];j++)
+            dest[3+indexPos+j] = record[keyPositions[i]+j];
+        indexPos += keySizes[i];
+    }
     dest[0] = pos.page;
     dest[1] = pos.id;
     dest[2] = 0;
 }
 
 KontoResult KontoIndex::split(uint pageID) {
+    //cout << "split: " << pageID << endl;
     // create a new page
     int oldBufIndex;
-    KontoPage oldPage = pmgr->getPage(fileID, pageID, oldBufIndex);
+    KontoPage oldPage = pmgr.getPage(fileID, pageID, oldBufIndex);
     int newBufIndex;
-    KontoPage newPage = pmgr->getPage(fileID, pageCount, newBufIndex);
+    KontoPage newPage = pmgr.getPage(fileID, pageCount, newBufIndex);
     // FIXME: 可能出现无法同时读取两个页面的情况吗
     int totalCount = oldPage[POS_PAGE_CHILDCOUNT], splitCount = totalCount / 2;
     // update data in oldpage
@@ -176,9 +191,9 @@ KontoResult KontoIndex::split(uint pageID) {
     uint nextPageID = oldPage[POS_PAGE_NEXT];
     uint parentPageID = oldPage[POS_PAGE_PARENT];
     oldPage[POS_PAGE_NEXT] = pageCount;
-    pmgr->markDirty(oldBufIndex);
+    pmgr.markDirty(oldBufIndex);
     // update data in newpage
-    newPage[POS_PAGE_CHILDCOUNT] = splitCount - totalCount;
+    newPage[POS_PAGE_CHILDCOUNT] = totalCount - splitCount;
     newPage[POS_PAGE_NODETYPE] = oldPage[POS_PAGE_NODETYPE];
     newPage[POS_PAGE_PREV] = pageID;
     newPage[POS_PAGE_NEXT] = nextPageID;
@@ -198,43 +213,45 @@ KontoResult KontoIndex::split(uint pageID) {
         memcpy(newPageKey, newPage + POS_PAGE_DATA + 1, indexSize * 4);
     else 
         memcpy(newPageKey, newPage + POS_PAGE_DATA + 3, indexSize * 4);
-    pmgr->markDirty(newBufIndex);
+    pmgr.markDirty(newBufIndex);
+    //cout << "split: create finished" << endl;
     // update children
     if (newPage[POS_PAGE_NODETYPE] == NODETYPE_INNER) {
-        int childrenPageCount = splitCount - totalCount;
+        int childrenPageCount = totalCount - splitCount;
         uint* childrenPageID = new uint[childrenPageCount];
         for (int i=0;i<childrenPageCount;i++) 
             childrenPageID[i] = newPage[POS_PAGE_DATA + i*(1+indexSize)];
         int oldPageLastChildrenID = oldPage[POS_PAGE_DATA + (splitCount-1) * (1+indexSize)];
         for (int i=0;i<childrenPageCount;i++) {
             int childBufIndex;
-            KontoPage childPage = pmgr->getPage(fileID, childrenPageID[i], childBufIndex);
+            KontoPage childPage = pmgr.getPage(fileID, childrenPageID[i], childBufIndex);
             childPage[POS_PAGE_PARENT] = pageCount;
-            pmgr->markDirty(childBufIndex);
+            pmgr.markDirty(childBufIndex);
         }
         int childBufIndex;
-        KontoPage childPage = pmgr->getPage(fileID, oldPageLastChildrenID, childBufIndex);
+        KontoPage childPage = pmgr.getPage(fileID, oldPageLastChildrenID, childBufIndex);
         childPage[POS_PAGE_NEXT] = 0;
-        pmgr->markDirty(childBufIndex);
-        childPage = pmgr->getPage(fileID, childrenPageID[0], childBufIndex);
+        pmgr.markDirty(childBufIndex);
+        childPage = pmgr.getPage(fileID, childrenPageID[0], childBufIndex);
         childPage[POS_PAGE_PREV] = 0;
-        pmgr->markDirty(childBufIndex);
+        pmgr.markDirty(childBufIndex);
         delete[] childrenPageID;
     }
     // update data in nextpage
     if (nextPageID != 0) {
         int nextBufIndex;
-        KontoPage nextPage = pmgr->getPage(fileID, nextPageID, nextBufIndex);
+        KontoPage nextPage = pmgr.getPage(fileID, nextPageID, nextBufIndex);
         nextPage[POS_PAGE_PREV] = pageCount;
-        pmgr->markDirty(nextBufIndex);
+        pmgr.markDirty(nextBufIndex);
     }
     // update data in parentpage
     if (parentPageID != 0) {
         int parentBufIndex;
-        KontoPage parentPage = pmgr->getPage(fileID, parentPageID, parentBufIndex);
+        KontoPage parentPage = pmgr.getPage(fileID, parentPageID, parentBufIndex);
         // find the pageid
         assert(parentPage[POS_PAGE_NODETYPE] == NODETYPE_INNER);
         int i = 0; 
+        //cout << "split: update parent, i = " << i << endl;
         while (parentPage[POS_PAGE_DATA + i * (1+indexSize)] != pageID) i++;
         int childCount = parentPage[POS_PAGE_CHILDCOUNT];
         // update
@@ -246,16 +263,19 @@ KontoResult KontoIndex::split(uint pageID) {
         memcpy(
             parentPage + POS_PAGE_DATA + (i+1) * (1+indexSize) + 1,
             newPageKey,
-            (1+indexSize) * 4);
+            indexSize * 4);
         parentPage[POS_PAGE_DATA + (i+1)*(1+indexSize)] = pageCount;
         parentPage[POS_PAGE_CHILDCOUNT] ++;
-        pmgr->markDirty(parentBufIndex);
+        pmgr.markDirty(parentBufIndex);
         pageCount ++; 
-        if (POS_PAGE_DATA + (parentPage[POS_PAGE_CHILDCOUNT] + 1) * (1+indexSize) >= PAGE_INT_NUM)
+        if (POS_PAGE_DATA + parentPage[POS_PAGE_CHILDCOUNT] * (1+indexSize) >= SPLIT_UPPERBOUND) {
+            //cout << "before split: page " << parentPageID << " has " << childCount+1 
+            //    << " children " << endl;
             split(parentPageID);
+        }
     } else {
         // reload old page, transfer to another new page
-        oldPage = pmgr->getPage(fileID, pageID, oldBufIndex);
+        oldPage = pmgr.getPage(fileID, pageID, oldBufIndex);
         uint* oldPageKey = new uint[indexSize];
         if (oldPage[POS_PAGE_NODETYPE] == NODETYPE_INNER)
             memcpy(oldPageKey, oldPage + POS_PAGE_DATA + 1, indexSize * 4);
@@ -263,10 +283,10 @@ KontoResult KontoIndex::split(uint pageID) {
             memcpy(oldPageKey, oldPage + POS_PAGE_DATA + 3, indexSize * 4);
         int anotherBufIndex;
         // anotherPageID = pageCount + 1;
-        KontoPage anotherPage = pmgr->getPage(fileID, pageCount + 1, anotherBufIndex);
+        KontoPage anotherPage = pmgr.getPage(fileID, pageCount + 1, anotherBufIndex);
         memcpy(anotherPage, oldPage, PAGE_INT_NUM * 4);
         anotherPage[POS_PAGE_PARENT] = 1;
-        pmgr->markDirty(anotherBufIndex);
+        pmgr.markDirty(anotherBufIndex);
         if (anotherPage[POS_PAGE_NODETYPE] == NODETYPE_INNER) {
             int childrenPageCount = anotherPage[POS_PAGE_CHILDCOUNT];
             uint* childrenPageID = new uint[childrenPageCount];
@@ -274,19 +294,21 @@ KontoResult KontoIndex::split(uint pageID) {
                 childrenPageID[i] = anotherPage[POS_PAGE_DATA + i*(1+indexSize)];
             for (int i=0;i<childrenPageCount;i++) {
                 int childBufIndex;
-                KontoPage childPage = pmgr->getPage(fileID, childrenPageID[i], childBufIndex);
+                KontoPage childPage = pmgr.getPage(fileID, childrenPageID[i], childBufIndex);
                 childPage[POS_PAGE_PARENT] = pageCount + 1;
-                pmgr->markDirty(childBufIndex);
+                pmgr.markDirty(childBufIndex);
             }
             delete[] childrenPageID;
         }
-        newPage = pmgr->getPage(fileID, pageCount, newBufIndex);
+        //cout << "split: copied to another page." << endl;
+        newPage = pmgr.getPage(fileID, pageCount, newBufIndex);
         newPage[POS_PAGE_PREV] = pageCount + 1;
         newPage[POS_PAGE_PARENT] = 1;
-        pmgr->markDirty(newBufIndex);
+        pmgr.markDirty(newBufIndex);
+        //cout << "split: connected new page." << endl;
         // refresh root page
         int rootBufIndex;
-        KontoPage rootPage = pmgr->getPage(fileID, 1, rootBufIndex);
+        KontoPage rootPage = pmgr.getPage(fileID, 1, rootBufIndex);
         rootPage[POS_PAGE_CHILDCOUNT] = 2;
         rootPage[POS_PAGE_NODETYPE] = NODETYPE_INNER;
         rootPage[POS_PAGE_PREV] = rootPage[POS_PAGE_NEXT] = 0;
@@ -295,48 +317,54 @@ KontoResult KontoIndex::split(uint pageID) {
         memcpy(rootPage + POS_PAGE_DATA + 1, oldPageKey, indexSize * 4);
         rootPage[POS_PAGE_DATA + 1 + indexSize] = pageCount;
         memcpy(rootPage + POS_PAGE_DATA + 2 + indexSize, newPageKey, indexSize * 4);
-        pmgr->markDirty(rootBufIndex);
+        pmgr.markDirty(rootBufIndex);
         delete[] oldPageKey;
         pageCount += 2;
+        //cout << "split: connected root page." << endl;
     }
     // refresh meta page for pagecount
     int metaBufIndex;
-    KontoPage metaPage = pmgr->getPage(fileID, 1, metaBufIndex);
+    KontoPage metaPage = pmgr.getPage(fileID, 0, metaBufIndex);
     metaPage[POS_META_PAGECOUNT] = pageCount;
-    pmgr->markDirty(metaBufIndex);
+    pmgr.markDirty(metaBufIndex);
     delete[] newPageKey;
+    //cout << "split: finished." << endl;
     return KR_OK;
 }
 
 KontoResult KontoIndex::insertRecur(uint* record, KontoRPos& pos, uint pageID) {
-    cout << "insertRecur pos=(" << pos.page << "," << pos.id << ")" << " pageid=" << pageID << endl; 
+    //cout << "insertRecur pos=(" << pos.page << "," << pos.id << ")" << " pageid=" << pageID << endl; 
     int bufindex;
-    KontoPage page = pmgr->getPage(fileID, pageID, bufindex);
-    cout << "fileid = " << fileID << "pageid = " << pageID << endl;
-    cout << "got page = " << page << endl;
+    KontoPage page = pmgr.getPage(fileID, pageID, bufindex);
+    //cout << "fileid = " << fileID << " pageid = " << pageID << endl;
+    //cout << "got page = " << page << endl;
     uint nodetype = page[POS_PAGE_NODETYPE];
     uint childcount = page[POS_PAGE_CHILDCOUNT];
-    cout << "get nodetype=" << nodetype << ", childcount=" << childcount << endl;
+    //cout << "got nodetype=" << nodetype << ", childcount=" << childcount << endl;
     if (nodetype == NODETYPE_LEAF) {
-        uint iter = 0;
-        cout << "before iteration" << endl;
+        int iter = 0;
+        //cout << "before iteration" << endl;
         while (true) {
             if (iter>=childcount) break;
             uint* indexData = page+POS_PAGE_DATA+iter*(3+indexSize)+3;
             if (compare(record, indexData) < 0) break;
             iter++;
+            //cout << "iter = " << iter << endl;
         }
-        cout << "iter = " << iter << " before memmove" << endl;
+        //cout << "iter = " << iter << " before memmove" << endl;
         memmove(
             page + POS_PAGE_DATA + (iter+1) * (3+indexSize), 
             page + POS_PAGE_DATA + iter * (3+indexSize), 
             (childcount - iter) * (3+indexSize) * 4);
         setKey(page + POS_PAGE_DATA + iter * (3+indexSize), record, pos);
         page[POS_PAGE_CHILDCOUNT] = ++childcount;
-        if (POS_PAGE_DATA + childcount * (3+indexSize) >= PAGE_INT_NUM) 
+        if (POS_PAGE_DATA + childcount * (3+indexSize) >= SPLIT_UPPERBOUND) { 
+            //cout << "before split: page " << pageID << " has " << childcount
+            //    << " children. indexsize = " << indexSize << endl; 
             split(pageID);
+        }
     } else {
-        uint iter = 0;
+        int iter = 0;
         while (true) {
             if (iter>=childcount) break;
             uint* indexData = page + POS_PAGE_DATA + iter*(1+indexSize)+1;
@@ -344,6 +372,7 @@ KontoResult KontoIndex::insertRecur(uint* record, KontoRPos& pos, uint pageID) {
             iter++;
         }
         iter--; if (iter<0) iter = 0;
+        //cout << "iter = " << iter << " before recur" << endl;
         insertRecur(record, pos, page[POS_PAGE_DATA + iter * (1+indexSize)]);
     }
     return KR_OK;
@@ -354,8 +383,10 @@ KontoResult KontoIndex::insert(uint* record, KontoRPos& pos) {
 }
 
 KontoResult KontoIndex::queryIposRecur(uint* record, KontoIPos& out, uint pageID, bool equal) {
+    //cout << "queryIposRecur, pageID=" << pageID << " rec=";
+    //debugPrintRecord(record); cout << endl;
     int bufindex;
-    KontoPage page = pmgr->getPage(fileID, pageID, bufindex);
+    KontoPage page = pmgr.getPage(fileID, pageID, bufindex);
     uint nodetype = page[POS_PAGE_NODETYPE];
     uint childcount = page[POS_PAGE_CHILDCOUNT];
     if (nodetype == NODETYPE_LEAF) {
@@ -391,20 +422,70 @@ KontoResult KontoIndex::queryIpos(uint* record, KontoIPos& out, bool equal) {
     return queryIposRecur(record, out, 1, equal);
 }
 
-KontoResult KontoIndex::remove(uint* record) {
+KontoResult KontoIndex::queryIposFirstRecur(KontoIPos& out, uint pageID) {
+    int bufindex;
+    KontoPage page = pmgr.getPage(fileID, pageID, bufindex);
+    uint nodetype = page[POS_PAGE_NODETYPE];
+    uint childcount = page[POS_PAGE_CHILDCOUNT];
+    if (nodetype == NODETYPE_LEAF) {
+        if (childcount == 0) return KR_NOT_FOUND;
+        out = KontoIPos(pageID, 0);
+        return KR_OK;
+    } else {
+        return queryIposFirstRecur(out, page[POS_PAGE_DATA]);
+    }
+    return KR_NOT_FOUND;
+}
+
+KontoResult KontoIndex::queryIposFirst(KontoIPos& out) {
+    return queryIposFirstRecur(out, 1);
+}
+
+KontoResult KontoIndex::queryIposLastRecur(KontoIPos& out, uint pageID) {
+    int bufindex;
+    KontoPage page = pmgr.getPage(fileID, pageID, bufindex);
+    uint nodetype = page[POS_PAGE_NODETYPE];
+    uint childcount = page[POS_PAGE_CHILDCOUNT];
+    if (nodetype == NODETYPE_LEAF) {
+        if (childcount == 0) return KR_NOT_FOUND;
+        out = KontoIPos(pageID, childcount-1);
+        return KR_OK;
+    } else {
+        return queryIposLastRecur(out, page[POS_PAGE_DATA+(childcount-1)*(1+indexSize)]);
+    }
+    return KR_NOT_FOUND;
+}
+
+KontoResult KontoIndex::queryIposLast(KontoIPos& out) {
+    return queryIposLastRecur(out, 1);
+}
+
+bool KontoIndex::isDeleted(KontoIPos& q) {
+    int pageBufIndex;
+    KontoPage page = pmgr.getPage(fileID, q.page, pageBufIndex);
+    return page[POS_PAGE_DATA + (3+indexSize) * q.id + 2] & FLAGS_DELETED;
+}
+
+KontoResult KontoIndex::remove(uint* record, KontoRPos& pos) {
     KontoIPos query;
     KontoResult qres = queryIpos(record, query, true);
     if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
+    while (true) {
+        if (getRPos(query) == pos) 
+            if (!isDeleted(query)) break;
+        qres = getPrevious(query);
+        if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
+    }
     int pageBufIndex;
-    KontoPage page = pmgr->getPage(fileID, query.page, pageBufIndex);
+    KontoPage page = pmgr.getPage(fileID, query.page, pageBufIndex);
     page[POS_PAGE_DATA + (3+indexSize) * query.id + 2] |= FLAGS_DELETED;
-    pmgr->markDirty(pageBufIndex);
+    pmgr.markDirty(pageBufIndex);
     return KR_OK;
 }
 
 KontoRPos KontoIndex::getRPos(KontoIPos& pos) {
     int pageBufIndex;
-    KontoPage page = pmgr->getPage(fileID, pos.page, pageBufIndex);
+    KontoPage page = pmgr.getPage(fileID, pos.page, pageBufIndex);
     int rpage = page[POS_PAGE_DATA + (3+indexSize) * pos.id + 0];
     int rid = page[POS_PAGE_DATA + (3+indexSize) * pos.id + 1];
     return KontoRPos(rpage, rid);
@@ -414,6 +495,11 @@ KontoResult KontoIndex::queryLE(uint* record, KontoRPos& out) {
     KontoIPos query;
     KontoResult qres = queryIpos(record, query, true);
     if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
+    while (true) {
+        if (!isDeleted(query)) break;
+        qres = getPrevious(query); 
+        if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
+    }
     KontoRPos rpos = getRPos(query);
     out = rpos;
     return KR_OK;
@@ -423,27 +509,36 @@ KontoResult KontoIndex::queryL(uint* record, KontoRPos& out) {
     KontoIPos query;
     KontoResult qres = queryIpos(record, query, false);
     if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
+    while (true) {
+        if (!isDeleted(query)) break;
+        qres = getPrevious(query); 
+        if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
+    }
     KontoRPos rpos = getRPos(query);
     out = rpos;
     return KR_OK;
 }
 
 KontoResult KontoIndex::getNext(KontoIPos& pos, KontoIPos& out) {
+    //cout << "getnext " << pos.page << " " << pos.id << endl; 
     int pageID = pos.page, id = pos.id;
     int pageBufIndex; KontoPage page;
-    page = pmgr->getPage(fileID, pageID, pageBufIndex);
-    if (id>=page[POS_PAGE_CHILDCOUNT]) {
+    page = pmgr.getPage(fileID, pageID, pageBufIndex);
+    if (id>=page[POS_PAGE_CHILDCOUNT]-1) {
         while (page[POS_PAGE_NEXT] == 0) {
             pageID = page[POS_PAGE_PARENT];
             if (pageID == 0) return KR_LAST_IPOS;
-            page = pmgr->getPage(fileID, pageID, pageBufIndex);
+            page = pmgr.getPage(fileID, pageID, pageBufIndex);
+            //cout << "upjump " << pageID << endl;
         }
         pageID = page[POS_PAGE_NEXT];
-        page = pmgr->getPage(fileID, pageID, pageBufIndex);
+        //cout << "nextjump " << pageID << endl;
+        page = pmgr.getPage(fileID, pageID, pageBufIndex);
         while (page[POS_PAGE_NODETYPE] == NODETYPE_INNER) {
             assert(page[POS_PAGE_CHILDCOUNT] > 0);
             pageID = page[POS_PAGE_DATA];
-            page = pmgr->getPage(fileID, pageID, pageBufIndex);
+            page = pmgr.getPage(fileID, pageID, pageBufIndex);
+            //cout << "downjump " << pageID << endl;
         }
         out = KontoIPos(pageID, 0);
         return KR_OK;
@@ -453,8 +548,51 @@ KontoResult KontoIndex::getNext(KontoIPos& pos, KontoIPos& out) {
     }
 }
 
+KontoResult KontoIndex::getPrevious(KontoIPos& pos, KontoIPos& out) {
+    //cout << "getnext " << pos.page << " " << pos.id << endl; 
+    int pageID = pos.page, id = pos.id;
+    int pageBufIndex; KontoPage page;
+    page = pmgr.getPage(fileID, pageID, pageBufIndex);
+    if (id==0) {
+        while (page[POS_PAGE_PREV] == 0) {
+            pageID = page[POS_PAGE_PARENT];
+            if (pageID == 0) return KR_LAST_IPOS;
+            page = pmgr.getPage(fileID, pageID, pageBufIndex);
+            //cout << "upjump " << pageID << endl;
+        }
+        pageID = page[POS_PAGE_PREV];
+        //cout << "nextjump " << pageID << endl;
+        page = pmgr.getPage(fileID, pageID, pageBufIndex);
+        while (page[POS_PAGE_NODETYPE] == NODETYPE_INNER) {
+            assert(page[POS_PAGE_CHILDCOUNT] > 0);
+            pageID = page[POS_PAGE_DATA];
+            page = pmgr.getPage(fileID, pageID, pageBufIndex);
+            //cout << "downjump " << pageID << endl;
+        }
+        out = KontoIPos(pageID, page[POS_PAGE_CHILDCOUNT]-1);
+        return KR_OK;
+    } else {
+        out = KontoIPos(pageID, id-1);
+        return KR_OK;
+    }
+}
+
+KontoResult KontoIndex::getNext(KontoIPos& pos) {
+    KontoIPos temp; 
+    KontoResult r = getNext(pos, temp);
+    if (r==KR_OK) pos=temp; 
+    return r;
+}
+
+KontoResult KontoIndex::getPrevious(KontoIPos& pos) {
+    KontoIPos temp; 
+    KontoResult r = getPrevious(pos, temp);
+    if (r==KR_OK) pos=temp; 
+    return r;
+}
+
 KontoResult KontoIndex::close() {
-    pmgr->closeFile(fileID);
+    pmgr.closeFile(fileID);
     return KR_OK;
 }
 
@@ -479,11 +617,31 @@ void KontoIndex::debugPrintKey(uint* ptr) {
     printf(")");
 }
 
+void KontoIndex::debugPrintRecord(uint* ptr) {
+    printf("(");
+    int kc = keyPositions.size();
+    for (int i=0;i<kc;i++) {
+        if (i!=0) printf(", ");
+        switch (keyTypes[i]) {
+            case KT_INT:
+                printf("%d", *((int*)(ptr+keyPositions[i]))); break;
+            case KT_FLOAT:
+                printf("%lf", *((double*)(ptr+keyPositions[i]))); break;
+            case KT_STRING:
+                printf("%s", (char*)(ptr+keyPositions[i])); break;
+            default:
+                printf("BADTYPE");
+        }
+    }
+    printf(")");
+}
+
 void KontoIndex::debugPrint() {
     int metaBufIndex;
-    KontoPage metaPage = pmgr->getPage(fileID, 0, metaBufIndex);
+    KontoPage metaPage = pmgr.getPage(fileID, 0, metaBufIndex);
+    printf("\n========================================================\n");
     printf("=============[(%d) Filename: ", fileID); cout << filename << "]=============" << endl;
-    printf("PageCount = %d\n", pageCount);
+    cout << "PageCount = " << pageCount << endl;
     assert(pageCount == metaPage[POS_META_PAGECOUNT]);
     printf("KeyCount = %d\n", keyPositions.size());
     assert(keyPositions.size() == metaPage[POS_META_KEYCOUNT]);
@@ -498,11 +656,13 @@ void KontoIndex::debugPrint() {
     }
     printf("\n");
     debugPrintPage(1);
+    printf("========== Finished ==========\n");
+    printf("==============================\n\n");
 }
 
 void KontoIndex::debugPrintPage(int pageID) {
     int pageBufIndex;
-    KontoPage page = pmgr->getPage(fileID, pageID, pageBufIndex);
+    KontoPage page = pmgr.getPage(fileID, pageID, pageBufIndex);
     printf("-----[PageId: %d]-----\n", pageID);
     printf("NodeType = %d\n", page[POS_PAGE_NODETYPE]);
     printf("ChildCount = %d\n", page[POS_PAGE_CHILDCOUNT]);
@@ -512,12 +672,16 @@ void KontoIndex::debugPrintPage(int pageID) {
     int type = page[POS_PAGE_NODETYPE];
     for (int i=0;i<cnt;i++) {
         if (type==NODETYPE_INNER) {
-            printf("    [%d] page=%d, key=", i, page[POS_PAGE_DATA + i * (1+indexSize)]); 
+            printf("    [%d @ %d] page=%d, key=", i,
+                POS_PAGE_DATA + i * (1+indexSize), 
+                page[POS_PAGE_DATA + i * (1+indexSize)]); 
             debugPrintKey(page + POS_PAGE_DATA + i * (1+indexSize) + 1);
             printf("\n");
         } else {
-            printf("    [%d] rpos=(%d,%d), del=%d, key=", 
-                i, page[POS_PAGE_DATA + i * (3+indexSize)], 
+            printf("    [%d @ %d] rpos=(%d,%d), del=%d, key=", 
+                i, 
+                POS_PAGE_DATA + i * (3+indexSize), 
+                page[POS_PAGE_DATA + i * (3+indexSize)], 
                 page[POS_PAGE_DATA + i * (3+indexSize) + 1],
                 page[POS_PAGE_DATA + i * (3+indexSize) + 2]);
             debugPrintKey(page + POS_PAGE_DATA + i*(3+indexSize) + 3);
@@ -530,3 +694,58 @@ void KontoIndex::debugPrintPage(int pageID) {
             debugPrintPage(page[POS_PAGE_DATA + i * (1+indexSize)]);
     }
 } 
+
+KontoResult KontoIndex::recreate(KontoIndex* original, KontoIndex** handle) {
+    original->close();
+    string filename = original->filename;
+    string fullFilename = get_filename(original->filename);
+    remove_file(fullFilename);
+    createIndex(filename, handle, original->keyTypes, 
+        original->keyPositions, original->keySizes);
+    return KR_OK;
+}
+
+KontoResult KontoIndex::queryInterval(uint* lower, uint* upper, KontoQRes& out,
+    bool lowerIncluded, bool upperIncluded)
+{
+    if (lower && upper) {
+        int comp = compareRecords(lower, upper);
+        if (comp > 0 || (comp == 0 && (!lowerIncluded || !upperIncluded)))
+            {out = KontoQRes();return KR_OK;} 
+    }
+    KontoIPos lowerIpos;
+    KontoResult result;
+    if (lower) {
+        result = queryIpos(lower, lowerIpos, !lowerIncluded);
+        if (result == KR_NOT_FOUND) 
+            result = queryIposFirst(lowerIpos);
+        else {
+            KontoIPos lowerNext; 
+            result = getNext(lowerIpos, lowerNext);
+            if (result == KR_NOT_FOUND) {out = KontoQRes();return KR_OK;}
+            lowerIpos = lowerNext;
+        }
+    } else {
+        result = queryIposFirst(lowerIpos);
+        if (result == KR_NOT_FOUND) {out = KontoQRes();return KR_OK;}
+    }
+    KontoIPos upperIpos;
+    if (upper) {
+        result = queryIpos(upper, upperIpos, upperIncluded);
+        if (result == KR_NOT_FOUND) {out = KontoQRes();return KR_OK;}
+    } else {
+        result = queryIposLast(upperIpos);
+        if (result == KR_NOT_FOUND) {out = KontoQRes();return KR_OK;}
+    }
+    KontoQRes ret;
+    KontoIPos iterator = lowerIpos;
+    while (true) {
+        if (!isDeleted(iterator))
+            ret.push(getRPos(iterator));
+        if (iterator == upperIpos) break;
+        KontoIPos temp; getNext(iterator, temp);
+        iterator = temp;
+    }
+    out = ret;
+    return KR_OK;
+}

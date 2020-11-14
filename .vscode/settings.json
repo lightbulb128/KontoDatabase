@@ -51,6 +51,7 @@
         "limits": "cpp",
         "ranges": "cpp",
         "stdexcept": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "filesystem": "cpp"
     }
 }
