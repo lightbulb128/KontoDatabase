@@ -69,6 +69,7 @@ private:
     int pageCount; // 页的数量
     int recordSize; // 一条记录所占用空间大小（以int=4为单位）
     string filename;
+    // 在当前目录下查找已有的索引文件并加载。
     void loadIndices(); 
 public:
     ~KontoTableFile();
@@ -112,31 +113,31 @@ public:
     KontoResult allEntries(KontoQRes& out);
     // 获取某属性对应的属性编号。
     KontoResult getKeyIndex(const char* key, KontoKeyIndex& out);
-
+    // 获取一条记录的大小，以int=4为单位
     uint getRecordSize();
-
+    // 获取某一条记录，以pos指定，将数据存储到dest中
     KontoResult getDataCopied(KontoRPos& pos, uint* dest);
-    
+    // 创建索引表并与该数据表绑定，handle非空时将存储创建的索引表的指针
     KontoResult createIndex(vector<KontoKeyIndex>& keys, KontoIndex** handle);
-    
+    // 删除所有索引表
     void removeIndices();
-
+    // 向所有已经关联的索引表中添加记录
     KontoResult insertIndex(KontoRPos& pos);
-
+    // 从已经关联的索引表中删除记录
     KontoResult deleteIndex(KontoRPos& pos);
-
+    // 重新生成索引表
     KontoResult recreateIndices();
-
+    // 获取索引表的指针
     KontoIndex* getIndex(uint id);
-
+    // 向cout输出一条记录
     void printRecord(uint* record);
-
+    // 向cout输出一条记录，通过pos指定
     void printRecord(KontoRPos& pos);
-
+    // 设置某一条记录的某一个int域
     KontoResult setEntryInt(uint* record, KontoKeyIndex key, int datum);
-    
+    // 设置某一条记录的某一个string域
     KontoResult setEntryString(uint* record, KontoKeyIndex key, const char* data);
-
+    // 设置某一条记录的某一个float域
     KontoResult setEntryFloat(uint* record, KontoKeyIndex key, double datum);
 
     void debugtest();
