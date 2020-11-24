@@ -93,9 +93,9 @@ public:
         return getBuf(index);
     }
 
-    uint* getPage(int fileID, int pageID, int& pageBuffer) {
+    char* getPage(int fileID, int pageID, int& pageBuffer) {
         pageBuffer = getPage(fileID, pageID);
-        return (uint*) access(pageBuffer);
+        return access(pageBuffer);
     }
 
     void markDirty(int index) {

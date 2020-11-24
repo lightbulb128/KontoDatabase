@@ -6,10 +6,25 @@
 #include <vector>
 #include <string>
 #include <functional>
+#include "../db/KontoDbmgr.h"
 
 using std::vector;
 using std::string;
 using std::function;
+
+struct KontoColumnDefinition {
+    string name;
+    KontoKeyType type;
+    uint size;
+    bool nullable;
+    bool isForeign;
+    string foreignTable;
+    string foreignName;
+    char* defaultValue;
+    uint position;
+};
+
+typedef KontoColumnDefinition KontoCDef;
 
 // 一条记录在一个表中的位置，用页编号和页中记录编号来表示
 struct KontoRPos {
@@ -59,18 +74,18 @@ private:
     BufPageManager& pmgr;
     KontoTableFile();
     bool fieldDefined; // 当前表的属性是否已经定义
-    vector<uint> keyPosition; // 记录各个属性在一条记录中对应的位置
-    vector<uint> keySize; // 记录各个属性的空间（以int大小=4为单位）
-    vector<KontoKeyType> keyType; // 各个属性的类别
-    vector<string> keyNames; // 各个属性的名称
+    vector<KontoCDef> keys;
     vector<KontoIndex*> indices;
     uint recordCount; // 当前表中的记录条数（包括已删除的）
     int fileID;
     int pageCount; // 页的数量
-    int recordSize; // 一条记录所占用空间大小（以int=4为单位）
+    int recordSize; // 一条记录所占用空间大小（以char=1为单位）
     string filename;
     // 在当前目录下查找已有的索引文件并加载。
     void loadIndices(); 
+
+    bool hasPrimaryKey();
+    
 public:
     ~KontoTableFile();
     // 创建新的表。创建后应该调用defineField声明各个属性，finishDefineField结束声明。
@@ -80,9 +95,9 @@ public:
     // 检查一个记录位置是否有效。
     KontoResult checkPosition(KontoRPos& pos);
     // 获取指向记录位置数据的指针，并指出接下来是读取还是写入。
-    uint* getDataPointer(KontoRPos& pos, KontoKeyIndex key, bool write);
+    char* getDataPointer(KontoRPos& pos, KontoKeyIndex key, bool write);
     // 定义表的一个属性域。
-    KontoResult defineField(int size, KontoKeyType type, const char* key); 
+    KontoResult defineField(KontoCDef& def); 
     // 结束属性域的定义，之后若再尝试定义将会出错。
     KontoResult finishDefineField();
     // 关闭文件。
@@ -116,9 +131,9 @@ public:
     // 获取一条记录的大小，以int=4为单位
     uint getRecordSize();
     // 获取某一条记录，以pos指定，将数据存储到dest中
-    KontoResult getDataCopied(KontoRPos& pos, uint* dest);
+    KontoResult getDataCopied(KontoRPos& pos, char* dest);
     // 创建索引表并与该数据表绑定，handle非空时将存储创建的索引表的指针
-    KontoResult createIndex(vector<KontoKeyIndex>& keys, KontoIndex** handle);
+    KontoResult createIndex(vector<KontoKeyIndex>& keyIndices, KontoIndex** handle);
     // 删除所有索引表
     void removeIndices();
     // 向所有已经关联的索引表中添加记录
@@ -130,15 +145,23 @@ public:
     // 获取索引表的指针
     KontoIndex* getIndex(uint id);
     // 向cout输出一条记录
-    void printRecord(uint* record);
+    void printRecord(char* record);
     // 向cout输出一条记录，通过pos指定
     void printRecord(KontoRPos& pos);
     // 设置某一条记录的某一个int域
-    KontoResult setEntryInt(uint* record, KontoKeyIndex key, int datum);
+    KontoResult setEntryInt(char* record, KontoKeyIndex key, int datum);
     // 设置某一条记录的某一个string域
-    KontoResult setEntryString(uint* record, KontoKeyIndex key, const char* data);
+    KontoResult setEntryString(char* record, KontoKeyIndex key, const char* data);
     // 设置某一条记录的某一个float域
-    KontoResult setEntryFloat(uint* record, KontoKeyIndex key, double datum);
+    KontoResult setEntryFloat(char* record, KontoKeyIndex key, double datum);
+
+    KontoResult alterAddPrimaryKey(const vector<uint>& primaryKeys);
+    KontoResult alterDropPrimaryKey();
+    KontoResult alterAddColumn(const KontoCDef& def);
+    KontoResult alterDropColumn(const KontoCDef& def);
+    KontoResult alterChangeColumn(string original, const KontoCDef& newdef);
+    KontoResult alterAddForeignKey(const KontoCDef& def);
+    KontoResult alterDropForeignKey(string name);
 
     void debugtest();
 };

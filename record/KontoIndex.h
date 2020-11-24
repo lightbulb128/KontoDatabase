@@ -36,23 +36,23 @@ private:
     int fileID;
     int pageCount;
     // 比较两个域，通过type指定域的类型，返回值正数表示d1>d2，负数表示d1<d2，0表示两者相等
-    static int compare(uint* d1, uint* d2, KontoKeyType type);
+    static int compare(char* d1, char* d2, KontoKeyType type);
     // 根据索引键的定义，比较一条数据记录和一个索引键
-    int compare(uint* record, uint* index);
+    int compare(char* record, char* index);
     // 根据索引键的定义，比较两条数据记录
-    int compareRecords(uint* r1, uint* r2);
+    int compareRecords(char* r1, char* r2);
     // 设置dest位置上的索引键，数据从record获得，且它在数据表中的位置由pos指定
-    void setKey(uint* dest, uint* record, KontoRPos& pos);
+    void setKey(char* dest, char* record, KontoRPos& pos);
     // 递归插入，record为要插入的数据，pos为这条数据在数据表中的位置，pageID为当前索引表的页面
-    KontoResult insertRecur(uint* record, KontoRPos& pos, uint pageID);
+    KontoResult insertRecur(char* record, KontoRPos& pos, uint pageID);
     // 页表分裂
     KontoResult split(uint pageID);
     // 递归查询，record为要查询的记录数据，out为查到的结果输出，pageID为当前索引表页面，equal=true表示查询不大于record的最后一条，
     // equal=false表示查询小于record的最后一条，不考虑delete域
-    KontoResult queryIposRecur(uint* record, KontoIPos& out, uint pageID, bool equal);
+    KontoResult queryIposRecur(char* record, KontoIPos& out, uint pageID, bool equal);
     // 查询，record为要查询的记录数据，out为查到的结果输出，equal=true表示查询不大于record的最后一条，
     // equal=false表示查询小于record的最后一条，不考虑delete域
-    KontoResult queryIpos(uint* record, KontoIPos& out, bool equal);
+    KontoResult queryIpos(char* record, KontoIPos& out, bool equal);
     // 递归获取索引表中第一条记录（即键值最小的记录），不考虑delete域
     KontoResult queryIposFirstRecur(KontoIPos& out, uint pageID);
     // 获取索引表中第一条记录（即键值最小的记录），不考虑delete域
@@ -82,16 +82,16 @@ public:
     // 根据键名生成索引文件名
     static string getIndexFilename(string database, vector<string> keyNames); 
     // 插入一条记录
-    KontoResult insert(uint* record, KontoRPos& pos);
+    KontoResult insert(char* record, KontoRPos& pos);
     // 删除一条记录
-    KontoResult remove(uint* record, KontoRPos& pos);
+    KontoResult remove(char* record, KontoRPos& pos);
     // 查询不大于key的最末一条记录，已被删除的索引节点被跳过
-    KontoResult queryLE(uint* record, KontoRPos& out); 
+    KontoResult queryLE(char* record, KontoRPos& out); 
     // 查询小于key的最末一条记录，已被删除的索引节点被跳过
-    KontoResult queryL(uint* record, KontoRPos& out);
+    KontoResult queryL(char* record, KontoRPos& out);
     // 查询在键值在lower到upper区间上的记录，included表示是否包含区间端点
     // lower=nullptr时，不限制左端点，upper=nullptr时，不限制右端点
-    KontoResult queryInterval(uint* lower, uint* upper, KontoQRes& out, 
+    KontoResult queryInterval(char* lower, char* upper, KontoQRes& out, 
         bool lowerIncluded = true, 
         bool upperIncluded = false);
     // 关闭记录文件
@@ -99,8 +99,8 @@ public:
     // 重新创建索引
     static KontoResult recreate(KontoIndex* original, KontoIndex** handle);
 
-    void debugPrintKey(uint* ptr);
-    void debugPrintRecord(uint* ptr);
+    void debugPrintKey(char* ptr);
+    void debugPrintRecord(char* ptr);
     void debugPrintPage(int pageID);
     void debugPrint();
 };
