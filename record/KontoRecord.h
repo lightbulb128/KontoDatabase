@@ -6,7 +6,6 @@
 #include <vector>
 #include <string>
 #include <functional>
-#include "../db/KontoDbmgr.h"
 
 using std::vector;
 using std::string;
@@ -22,6 +21,12 @@ struct KontoColumnDefinition {
     string foreignName;
     char* defaultValue;
     uint position;
+    KontoColumnDefinition(string _name, KontoKeyType _type, uint _size, bool _nullable = true, 
+        bool _isForeign = false, string _foreignTable = "", string _foreignName = "", 
+        char* _defaultValue = nullptr): name(_name), type(_type), size(_size), nullable(_nullable),
+        isForeign(_isForeign), foreignTable(_foreignTable), foreignName(_foreignName), 
+        defaultValue(_defaultValue) {}
+    KontoColumnDefinition(){}
 };
 
 typedef KontoColumnDefinition KontoCDef;
@@ -128,7 +133,7 @@ public:
     KontoResult allEntries(KontoQRes& out);
     // 获取某属性对应的属性编号。
     KontoResult getKeyIndex(const char* key, KontoKeyIndex& out);
-    // 获取一条记录的大小，以int=4为单位
+    // 获取一条记录的大小，以char=1为单位
     uint getRecordSize();
     // 获取某一条记录，以pos指定，将数据存储到dest中
     KontoResult getDataCopied(KontoRPos& pos, char* dest);
@@ -144,16 +149,23 @@ public:
     KontoResult recreateIndices();
     // 获取索引表的指针
     KontoIndex* getIndex(uint id);
+    
+    KontoIndex* getIndex(const vector<KontoKeyIndex>& keyIndices);
     // 向cout输出一条记录
     void printRecord(char* record);
     // 向cout输出一条记录，通过pos指定
-    void printRecord(KontoRPos& pos);
+    void printRecord(KontoRPos& pos, bool printPos = false);
     // 设置某一条记录的某一个int域
     KontoResult setEntryInt(char* record, KontoKeyIndex key, int datum);
     // 设置某一条记录的某一个string域
     KontoResult setEntryString(char* record, KontoKeyIndex key, const char* data);
     // 设置某一条记录的某一个float域
     KontoResult setEntryFloat(char* record, KontoKeyIndex key, double datum);
+
+    // The first two bytes will be ignored for they record id and flags
+    KontoResult insertEntry(char* record, KontoRPos* pos);
+
+    char* getRecordPointer(KontoRPos& pos, bool write);
 
     KontoResult alterAddPrimaryKey(const vector<uint>& primaryKeys);
     KontoResult alterDropPrimaryKey();

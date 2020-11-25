@@ -22,9 +22,12 @@ int test_record() {
     int k;
     int res = KontoTableFile::createFile("testfile", &table);
     cout << "file created\n" << endl;
-    table->defineField(8, KT_STRING, "strfield");
-    table->defineField(1, KT_INT, "intfield");
-    table->defineField(2, KT_FLOAT, "floatfield");
+    KontoCDef def = KontoCDef("strfield", KT_STRING, 32);
+    table->defineField(def);
+    def = KontoCDef("intfield", KT_INT, 4);
+    table->defineField(def);
+    def = KontoCDef("floatfield", KT_FLOAT, 8);
+    table->defineField(def);
     table->finishDefineField();
     KontoKeyIndex key1, key2, key3;
     table->getKeyIndex("strfield", key1);
@@ -32,24 +35,35 @@ int test_record() {
     table->getKeyIndex("floatfield", key3);
     int c = 100;
     KontoRPos krp[c*2];
+    char buffer[table->getRecordSize()];
     for (int i=0;i<c;i++) {
+        printf("i=%d\n",i);
+        string str = to_string(i)+"hel";
+        char cstr[20]; strcpy(cstr, str.c_str());
+        table->setEntryInt(buffer, key2, i*i*i);
+        table->setEntryString(buffer, key1, cstr);
+        table->setEntryFloat(buffer, key3, sqrt(i));
+        table->insertEntry(buffer, &krp[i]);
+    }
+    for (int i=0;i<c;i++) {
+        cout << "i=" << i << ":"; table->printRecord(krp[i]); cout << endl;
+    }
+    table->close();
+    res = KontoTableFile::loadFile("testfile", &table);
+    table->debugtest();
+    for (int i=c;i<c*2;i++) {
+        printf("i=%d\n",i);
         table->insertEntry(&krp[i]);
+        cout << krp[i].page << " " << krp[i].id << endl;
         string str = to_string(i)+"hel";
         char cstr[20]; strcpy(cstr, str.c_str());
         table->editEntryInt(krp[i], key2, i*i*i);
         table->editEntryString(krp[i], key1, cstr);
         table->editEntryFloat(krp[i], key3, sqrt(i));
     }
-    cout << "finished1" << endl;
-    for (int i=0;i<c;i++) {
-        char cstr[20]; int x; double s;
-        table->readEntryString(krp[i], key1, cstr);
-        table->readEntryFloat(krp[i], key3, s);
-        table->readEntryInt(krp[i], key2, x);
-        cout << "i=" << i << ":" << cstr << "," << x << "," << s << endl;
+    for (int i=0;i<c*2;i++) {
+        cout << "i=" << i << ":"; table->printRecord(krp[i], true); cout << endl;
     }
-    table->close();
-    res = KontoTableFile::loadFile("testfile", &table);
     table->debugtest();
     KontoQRes query1, query2;
     res = table->allEntries(query1);
@@ -60,40 +74,62 @@ int test_record() {
     int qs = query1.size();
     for (int i=0;i<qs;i++) {
         KontoRPos p = query1.get(i);
-        char cstr[20]; int x; double s;
-        table->readEntryString(p, key1, cstr);
-        table->readEntryFloat(p, key3, s);
-        table->readEntryInt(p, key2, x);
-        cout << "i=" << i << ":" << cstr << "," << x << "," << s << endl;
+        cout << "i=" << i << ":"; table->printRecord(p); cout << endl;
+    }
+    table->close();
+    res = KontoTableFile::loadFile("testfile", &table);
+    table->debugtest();
+    res = table->allEntries(query1);
+    qs = query1.size();
+    for (int i=0;i<qs;i++) {
+        KontoRPos p = query1.get(i);
+        cout << "i=" << i << ":"; table->printRecord(p); cout << endl;
     }
     table->close();
     return 0;
 }
 
+void test_load(){
+    KontoTableFile* table;
+    KontoResult res = KontoTableFile::loadFile("testfile", &table);
+    table->debugtest();
+    KontoQRes query1;
+    res = table->allEntries(query1);
+    int qs = query1.size();
+    for (int i=0;i<qs;i++) {
+        KontoRPos p = query1.get(i);
+        cout << "i=" << i << ":"; table->printRecord(p); cout << endl;
+    }
+    table->close();
+}
+
 int test_index() {
-    // when testing with a single num as key, use SPLIT_UPPERBOUND = 80
-    // when testing with a single str as key, use SPLIT_UPPERBOUND = 100
+    // use a small SPLIT_UPPERBOUND, e.g. 500
     // create a table and set up 3 indices
     // add records and simultaneously add them into the indices
     KontoTableFile* table;
     // create table
     KontoResult result = KontoTableFile::createFile("testfile", &table);
-    table->defineField(10, KT_STRING, "str");
-    table->defineField(1, KT_INT, "num");
+    KontoCDef def = KontoCDef("str", KT_STRING, 40);
+    table->defineField(def);
+    def = KontoCDef("num", KT_INT, 4);
+    table->defineField(def);
     table->finishDefineField();
     KontoKeyIndex keyNum; result = table->getKeyIndex("num", keyNum);
     KontoKeyIndex keyStr; result = table->getKeyIndex("str", keyStr);
     printf("Table created\n");
     // create indices
+    KontoIndex *ptr1, *ptr2, *ptr3;
     vector<uint> keyList = vector<uint>(); keyList.push_back(keyNum);
-    result = table->createIndex(keyList, nullptr);
+    result = table->createIndex(keyList, &ptr1);
     keyList = vector<uint>(); keyList.push_back(keyStr);
-    result = table->createIndex(keyList, nullptr);
+    result = table->createIndex(keyList, &ptr2);
     keyList = vector<uint>();
     keyList.push_back(keyNum); keyList.push_back(keyStr);
-    result = table->createIndex(keyList, nullptr);
+    result = table->createIndex(keyList, &ptr3);
     printf("Index created\n");
     printf("record size = %d\n", table->getRecordSize());
+    KontoIndex* ptr = table->getIndex(2);
     // repetitve keys
     int data[40] = {
         1,3,2,4,1,4,3,2,1,2,3,4,4,3,1,2,2,3,1,4,
@@ -112,17 +148,17 @@ int test_index() {
         printf("i=%d\n", i);
         KontoRPos pos; result = table->insertEntry(&pos);
         table->editEntryInt(pos, keyNum, data[i]*data[i]);
-        char p[20]; strcpy(p, datastr[i].c_str());
+        char p[40]; strcpy(p, datastr[i].c_str());
         table->editEntryString(pos, keyStr, p);
         table->insertIndex(pos);
     }
-    KontoIndex* ptr = table->getIndex(2);
-    ptr->debugPrint();
+    //ptr3->debugPrint();
     table->close();
     // reopen the file
     KontoTableFile::loadFile("testfile", &table);
+    //table->debugtest();
     ptr = table->getIndex(2);
-    ptr->debugPrint();
+    //ptr->debugPrint();
     // recreate the indices
     for (int i=20;i<40;i++) {
         printf("i=%d\n",i);
@@ -132,10 +168,16 @@ int test_index() {
         table->editEntryString(pos, keyStr, p);
     }
     table->recreateIndices();
-    ptr = table->getIndex(2);
-    ptr->debugPrint();
+    cout << "recreated\n";
+    keyList = vector<uint>();
+    //cout << "keynum = " << keyNum << " keystr = " << keyStr << endl;
+    keyList.push_back(keyNum); keyList.push_back(keyStr);
+    ptr = table->getIndex(keyList);
+    assert(ptr != nullptr);
+    cout << "got index\n"; 
+    //ptr->debugPrint();
     // test query
-    uint* record = new uint[table->getRecordSize()];
+    char* record = new char[table->getRecordSize()];
     table->setEntryInt(record, keyNum, 4);
     table->setEntryString(record, keyStr, "Scotland");
     KontoRPos qpos;
@@ -144,8 +186,8 @@ int test_index() {
     ptr->queryL(record, qpos);
     table->printRecord(qpos); cout << endl;
     delete[] record;
-    uint* rec1 = new uint[table->getRecordSize()];
-    uint* rec2 = new uint[table->getRecordSize()];
+    char* rec1 = new char[table->getRecordSize()];
+    char* rec2 = new char[table->getRecordSize()];
     table->setEntryInt(rec1, keyNum, 4);
     table->setEntryString(rec1, keyStr, "Scotland");
     table->setEntryInt(rec2, keyNum, 16);
@@ -206,15 +248,14 @@ int test_index() {
 }
 
 int test_index_2() {
-    // when testing with a single num as key, use SPLIT_UPPERBOUND = 80
-    // when testing with a single str as key, use SPLIT_UPPERBOUND = 100
-    // create a table and set up 3 indices
-    // add records and simultaneously add them into the indices
+    // use a small SPLIT_UPPERBOUND, e.g. 500
     KontoTableFile* table;
     // create table
     KontoResult result = KontoTableFile::createFile("testfile", &table);
-    table->defineField(10, KT_STRING, "str");
-    table->defineField(1, KT_INT, "num");
+    KontoCDef def = KontoCDef("str", KT_STRING, 40);
+    table->defineField(def);
+    def = KontoCDef("num", KT_INT, 4);
+    table->defineField(def);
     table->finishDefineField();
     KontoKeyIndex keyNum; result = table->getKeyIndex("num", keyNum);
     KontoKeyIndex keyStr; result = table->getKeyIndex("str", keyStr);
@@ -248,8 +289,8 @@ int test_index_2() {
     }
     KontoIndex* ptr = table->getIndex(2);
     ptr->debugPrint();
-    uint* rec1 = new uint[table->getRecordSize()];
-    uint* rec2 = new uint[table->getRecordSize()];
+    char* rec1 = new char[table->getRecordSize()];
+    char* rec2 = new char[table->getRecordSize()];
     table->setEntryInt(rec1, keyNum, 4);
     table->setEntryString(rec1, keyStr, "Jack");
     table->setEntryInt(rec2, keyNum, 16);
@@ -285,6 +326,6 @@ int test_debug() {
 
 
 int main(){
-    test_index_2();
+    test_record();
     return 0;
 }

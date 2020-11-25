@@ -17,6 +17,7 @@ typedef unsigned int uint;
 typedef char* KontoPage;
 typedef unsigned int KontoKeyIndex; 
 typedef unsigned int KontoKeyType;
+typedef char* charptr;
 
 struct KontoRPos;
 
@@ -66,26 +67,26 @@ void remove_file(string filename);
 // VALUE INTEGER
 inline uint& VI(char* ptr){return *(uint*)(ptr);}
 // VALUE INTEGER PLUS
-inline uint& VIP(char* ptr){ptr+=4; return *(uint*)(ptr-4);}
+inline uint& VIP(charptr& ptr){ptr+=4; return *(uint*)(ptr-4);}
 // COPY STRING
-inline void CS(char* dest, KontoPage& ptr){
+inline void CS(char* dest, charptr& ptr){
     strcpy(dest, ptr); int len = strlen(dest); ptr+=len+1;
 }
 // COPY STRING
-inline void CS(string& dest, KontoPage& ptr){
+inline void CS(string& dest, charptr& ptr){
     dest = ptr; int len = dest.length(); ptr+=len+1;
 }
 // NEW COPY STRING
-inline void NCS(KontoPage& dest, KontoPage& ptr, uint len){
+inline void NCS(charptr& dest, charptr& ptr, uint len){
     dest = new char[len];
     strcpy(dest, ptr); ptr+=len;
 }
 // PASTE STRING
-inline void PS(KontoPage& dest, char* src){
+inline void PS(charptr& dest, char* src){
     strcpy(dest, src); dest += strlen(src) + 1;
 } 
 // PASTE STRING
-inline void PS(KontoPage& dest, const string& src) {
+inline void PS(charptr& dest, const string& src) {
     strcpy(dest, src.c_str()); dest+=src.length()+1;
 }
 

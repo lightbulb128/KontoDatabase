@@ -80,7 +80,7 @@ public:
     // 加载索引
     static KontoResult loadIndex(string filename, KontoIndex** handle);
     // 根据键名生成索引文件名
-    static string getIndexFilename(string database, vector<string> keyNames); 
+    static string getIndexFilename(const string database, const vector<string> keyNames); 
     // 插入一条记录
     KontoResult insert(char* record, KontoRPos& pos);
     // 删除一条记录
@@ -99,9 +99,11 @@ public:
     // 重新创建索引
     static KontoResult recreate(KontoIndex* original, KontoIndex** handle);
 
+    string getFilename();
+
     void debugPrintKey(char* ptr);
     void debugPrintRecord(char* ptr);
-    void debugPrintPage(int pageID);
+    void debugPrintPage(int pageID, bool recur = true);
     void debugPrint();
 };
 

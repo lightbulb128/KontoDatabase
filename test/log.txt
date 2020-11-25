@@ -1,0 +1,840 @@
+file created
+
+i=0
+i=1
+i=2
+i=3
+i=4
+i=5
+i=6
+i=7
+i=8
+i=9
+i=10
+i=11
+i=12
+i=13
+i=14
+i=15
+i=16
+i=17
+i=18
+i=19
+i=20
+i=21
+i=22
+i=23
+i=24
+i=25
+i=26
+i=27
+i=28
+i=29
+i=30
+i=31
+i=32
+i=33
+i=34
+i=35
+i=36
+i=37
+i=38
+i=39
+i=40
+i=41
+i=42
+i=43
+i=44
+i=45
+i=46
+i=47
+i=48
+i=49
+i=50
+i=51
+i=52
+i=53
+i=54
+i=55
+i=56
+i=57
+i=58
+i=59
+i=60
+i=61
+i=62
+i=63
+i=64
+i=65
+i=66
+i=67
+i=68
+i=69
+i=70
+i=71
+i=72
+i=73
+i=74
+i=75
+i=76
+i=77
+i=78
+i=79
+i=80
+i=81
+i=82
+i=83
+i=84
+i=85
+i=86
+i=87
+i=88
+i=89
+i=90
+i=91
+i=92
+i=93
+i=94
+i=95
+i=96
+i=97
+i=98
+i=99
+i=0:[strfield=0hel; intfield=0; floatfield=0]
+i=1:[strfield=1hel; intfield=1; floatfield=1]
+i=2:[strfield=2hel; intfield=8; floatfield=1.41421]
+i=3:[strfield=3hel; intfield=27; floatfield=1.73205]
+i=4:[strfield=4hel; intfield=64; floatfield=2]
+i=5:[strfield=5hel; intfield=125; floatfield=2.23607]
+i=6:[strfield=6hel; intfield=216; floatfield=2.44949]
+i=7:[strfield=7hel; intfield=343; floatfield=2.64575]
+i=8:[strfield=8hel; intfield=512; floatfield=2.82843]
+i=9:[strfield=9hel; intfield=729; floatfield=3]
+i=10:[strfield=10hel; intfield=1000; floatfield=3.16228]
+i=11:[strfield=11hel; intfield=1331; floatfield=3.31662]
+i=12:[strfield=12hel; intfield=1728; floatfield=3.4641]
+i=13:[strfield=13hel; intfield=2197; floatfield=3.60555]
+i=14:[strfield=14hel; intfield=2744; floatfield=3.74166]
+i=15:[strfield=15hel; intfield=3375; floatfield=3.87298]
+i=16:[strfield=16hel; intfield=4096; floatfield=4]
+i=17:[strfield=17hel; intfield=4913; floatfield=4.12311]
+i=18:[strfield=18hel; intfield=5832; floatfield=4.24264]
+i=19:[strfield=19hel; intfield=6859; floatfield=4.3589]
+i=20:[strfield=20hel; intfield=8000; floatfield=4.47214]
+i=21:[strfield=21hel; intfield=9261; floatfield=4.58258]
+i=22:[strfield=22hel; intfield=10648; floatfield=4.69042]
+i=23:[strfield=23hel; intfield=12167; floatfield=4.79583]
+i=24:[strfield=24hel; intfield=13824; floatfield=4.89898]
+i=25:[strfield=25hel; intfield=15625; floatfield=5]
+i=26:[strfield=26hel; intfield=17576; floatfield=5.09902]
+i=27:[strfield=27hel; intfield=19683; floatfield=5.19615]
+i=28:[strfield=28hel; intfield=21952; floatfield=5.2915]
+i=29:[strfield=29hel; intfield=24389; floatfield=5.38516]
+i=30:[strfield=30hel; intfield=27000; floatfield=5.47723]
+i=31:[strfield=31hel; intfield=29791; floatfield=5.56776]
+i=32:[strfield=32hel; intfield=32768; floatfield=5.65685]
+i=33:[strfield=33hel; intfield=35937; floatfield=5.74456]
+i=34:[strfield=34hel; intfield=39304; floatfield=5.83095]
+i=35:[strfield=35hel; intfield=42875; floatfield=5.91608]
+i=36:[strfield=36hel; intfield=46656; floatfield=6]
+i=37:[strfield=37hel; intfield=50653; floatfield=6.08276]
+i=38:[strfield=38hel; intfield=54872; floatfield=6.16441]
+i=39:[strfield=39hel; intfield=59319; floatfield=6.245]
+i=40:[strfield=40hel; intfield=64000; floatfield=6.32456]
+i=41:[strfield=41hel; intfield=68921; floatfield=6.40312]
+i=42:[strfield=42hel; intfield=74088; floatfield=6.48074]
+i=43:[strfield=43hel; intfield=79507; floatfield=6.55744]
+i=44:[strfield=44hel; intfield=85184; floatfield=6.63325]
+i=45:[strfield=45hel; intfield=91125; floatfield=6.7082]
+i=46:[strfield=46hel; intfield=97336; floatfield=6.78233]
+i=47:[strfield=47hel; intfield=103823; floatfield=6.85565]
+i=48:[strfield=48hel; intfield=110592; floatfield=6.9282]
+i=49:[strfield=49hel; intfield=117649; floatfield=7]
+i=50:[strfield=50hel; intfield=125000; floatfield=7.07107]
+i=51:[strfield=51hel; intfield=132651; floatfield=7.14143]
+i=52:[strfield=52hel; intfield=140608; floatfield=7.2111]
+i=53:[strfield=53hel; intfield=148877; floatfield=7.28011]
+i=54:[strfield=54hel; intfield=157464; floatfield=7.34847]
+i=55:[strfield=55hel; intfield=166375; floatfield=7.4162]
+i=56:[strfield=56hel; intfield=175616; floatfield=7.48331]
+i=57:[strfield=57hel; intfield=185193; floatfield=7.54983]
+i=58:[strfield=58hel; intfield=195112; floatfield=7.61577]
+i=59:[strfield=59hel; intfield=205379; floatfield=7.68115]
+i=60:[strfield=60hel; intfield=216000; floatfield=7.74597]
+i=61:[strfield=61hel; intfield=226981; floatfield=7.81025]
+i=62:[strfield=62hel; intfield=238328; floatfield=7.87401]
+i=63:[strfield=63hel; intfield=250047; floatfield=7.93725]
+i=64:[strfield=64hel; intfield=262144; floatfield=8]
+i=65:[strfield=65hel; intfield=274625; floatfield=8.06226]
+i=66:[strfield=66hel; intfield=287496; floatfield=8.12404]
+i=67:[strfield=67hel; intfield=300763; floatfield=8.18535]
+i=68:[strfield=68hel; intfield=314432; floatfield=8.24621]
+i=69:[strfield=69hel; intfield=328509; floatfield=8.30662]
+i=70:[strfield=70hel; intfield=343000; floatfield=8.3666]
+i=71:[strfield=71hel; intfield=357911; floatfield=8.42615]
+i=72:[strfield=72hel; intfield=373248; floatfield=8.48528]
+i=73:[strfield=73hel; intfield=389017; floatfield=8.544]
+i=74:[strfield=74hel; intfield=405224; floatfield=8.60233]
+i=75:[strfield=75hel; intfield=421875; floatfield=8.66025]
+i=76:[strfield=76hel; intfield=438976; floatfield=8.7178]
+i=77:[strfield=77hel; intfield=456533; floatfield=8.77496]
+i=78:[strfield=78hel; intfield=474552; floatfield=8.83176]
+i=79:[strfield=79hel; intfield=493039; floatfield=8.88819]
+i=80:[strfield=80hel; intfield=512000; floatfield=8.94427]
+i=81:[strfield=81hel; intfield=531441; floatfield=9]
+i=82:[strfield=82hel; intfield=551368; floatfield=9.05539]
+i=83:[strfield=83hel; intfield=571787; floatfield=9.11043]
+i=84:[strfield=84hel; intfield=592704; floatfield=9.16515]
+i=85:[strfield=85hel; intfield=614125; floatfield=9.21954]
+i=86:[strfield=86hel; intfield=636056; floatfield=9.27362]
+i=87:[strfield=87hel; intfield=658503; floatfield=9.32738]
+i=88:[strfield=88hel; intfield=681472; floatfield=9.38083]
+i=89:[strfield=89hel; intfield=704969; floatfield=9.43398]
+i=90:[strfield=90hel; intfield=729000; floatfield=9.48683]
+i=91:[strfield=91hel; intfield=753571; floatfield=9.53939]
+i=92:[strfield=92hel; intfield=778688; floatfield=9.59166]
+i=93:[strfield=93hel; intfield=804357; floatfield=9.64365]
+i=94:[strfield=94hel; intfield=830584; floatfield=9.69536]
+i=95:[strfield=95hel; intfield=857375; floatfield=9.74679]
+i=96:[strfield=96hel; intfield=884736; floatfield=9.79796]
+i=97:[strfield=97hel; intfield=912673; floatfield=9.84886]
+i=98:[strfield=98hel; intfield=941192; floatfield=9.89949]
+i=99:[strfield=99hel; intfield=970299; floatfield=9.94987]
+[TABLE NAME = testfile]
+    recordsize=52
+    recordcount=100
+    pagecount=2
+    FIELDS:
+        [strfield] type=1 size=32 pos=8
+        [intfield] type=0 size=4 pos=40
+        [floatfield] type=2 size=8 pos=44
+i=100
+1 100
+i=101
+1 101
+i=102
+1 102
+i=103
+1 103
+i=104
+1 104
+i=105
+1 105
+i=106
+1 106
+i=107
+1 107
+i=108
+1 108
+i=109
+1 109
+i=110
+1 110
+i=111
+1 111
+i=112
+1 112
+i=113
+1 113
+i=114
+1 114
+i=115
+1 115
+i=116
+1 116
+i=117
+1 117
+i=118
+1 118
+i=119
+1 119
+i=120
+1 120
+i=121
+1 121
+i=122
+1 122
+i=123
+1 123
+i=124
+1 124
+i=125
+1 125
+i=126
+1 126
+i=127
+1 127
+i=128
+1 128
+i=129
+1 129
+i=130
+1 130
+i=131
+1 131
+i=132
+1 132
+i=133
+1 133
+i=134
+1 134
+i=135
+1 135
+i=136
+1 136
+i=137
+1 137
+i=138
+1 138
+i=139
+1 139
+i=140
+1 140
+i=141
+1 141
+i=142
+1 142
+i=143
+1 143
+i=144
+1 144
+i=145
+1 145
+i=146
+1 146
+i=147
+1 147
+i=148
+1 148
+i=149
+1 149
+i=150
+1 150
+i=151
+1 151
+i=152
+1 152
+i=153
+1 153
+i=154
+1 154
+i=155
+1 155
+i=156
+1 156
+i=157
+2 0
+i=158
+2 1
+i=159
+2 2
+i=160
+2 3
+i=161
+2 4
+i=162
+2 5
+i=163
+2 6
+i=164
+2 7
+i=165
+2 8
+i=166
+2 9
+i=167
+2 10
+i=168
+2 11
+i=169
+2 12
+i=170
+2 13
+i=171
+2 14
+i=172
+2 15
+i=173
+2 16
+i=174
+2 17
+i=175
+2 18
+i=176
+2 19
+i=177
+2 20
+i=178
+2 21
+i=179
+2 22
+i=180
+2 23
+i=181
+2 24
+i=182
+2 25
+i=183
+2 26
+i=184
+2 27
+i=185
+2 28
+i=186
+2 29
+i=187
+2 30
+i=188
+2 31
+i=189
+2 32
+i=190
+2 33
+i=191
+2 34
+i=192
+2 35
+i=193
+2 36
+i=194
+2 37
+i=195
+2 38
+i=196
+2 39
+i=197
+2 40
+i=198
+2 41
+i=199
+2 42
+i=0:[POS 1:0][strfield=0hel; intfield=0; floatfield=0]
+i=1:[POS 1:1][strfield=1hel; intfield=1; floatfield=1]
+i=2:[POS 1:2][strfield=2hel; intfield=8; floatfield=1.41421]
+i=3:[POS 1:3][strfield=3hel; intfield=27; floatfield=1.73205]
+i=4:[POS 1:4][strfield=4hel; intfield=64; floatfield=2]
+i=5:[POS 1:5][strfield=5hel; intfield=125; floatfield=2.23607]
+i=6:[POS 1:6][strfield=6hel; intfield=216; floatfield=2.44949]
+i=7:[POS 1:7][strfield=7hel; intfield=343; floatfield=2.64575]
+i=8:[POS 1:8][strfield=8hel; intfield=512; floatfield=2.82843]
+i=9:[POS 1:9][strfield=9hel; intfield=729; floatfield=3]
+i=10:[POS 1:10][strfield=10hel; intfield=1000; floatfield=3.16228]
+i=11:[POS 1:11][strfield=11hel; intfield=1331; floatfield=3.31662]
+i=12:[POS 1:12][strfield=12hel; intfield=1728; floatfield=3.4641]
+i=13:[POS 1:13][strfield=13hel; intfield=2197; floatfield=3.60555]
+i=14:[POS 1:14][strfield=14hel; intfield=2744; floatfield=3.74166]
+i=15:[POS 1:15][strfield=15hel; intfield=3375; floatfield=3.87298]
+i=16:[POS 1:16][strfield=16hel; intfield=4096; floatfield=4]
+i=17:[POS 1:17][strfield=17hel; intfield=4913; floatfield=4.12311]
+i=18:[POS 1:18][strfield=18hel; intfield=5832; floatfield=4.24264]
+i=19:[POS 1:19][strfield=19hel; intfield=6859; floatfield=4.3589]
+i=20:[POS 1:20][strfield=20hel; intfield=8000; floatfield=4.47214]
+i=21:[POS 1:21][strfield=21hel; intfield=9261; floatfield=4.58258]
+i=22:[POS 1:22][strfield=22hel; intfield=10648; floatfield=4.69042]
+i=23:[POS 1:23][strfield=23hel; intfield=12167; floatfield=4.79583]
+i=24:[POS 1:24][strfield=24hel; intfield=13824; floatfield=4.89898]
+i=25:[POS 1:25][strfield=25hel; intfield=15625; floatfield=5]
+i=26:[POS 1:26][strfield=26hel; intfield=17576; floatfield=5.09902]
+i=27:[POS 1:27][strfield=27hel; intfield=19683; floatfield=5.19615]
+i=28:[POS 1:28][strfield=28hel; intfield=21952; floatfield=5.2915]
+i=29:[POS 1:29][strfield=29hel; intfield=24389; floatfield=5.38516]
+i=30:[POS 1:30][strfield=30hel; intfield=27000; floatfield=5.47723]
+i=31:[POS 1:31][strfield=31hel; intfield=29791; floatfield=5.56776]
+i=32:[POS 1:32][strfield=32hel; intfield=32768; floatfield=5.65685]
+i=33:[POS 1:33][strfield=33hel; intfield=35937; floatfield=5.74456]
+i=34:[POS 1:34][strfield=34hel; intfield=39304; floatfield=5.83095]
+i=35:[POS 1:35][strfield=35hel; intfield=42875; floatfield=5.91608]
+i=36:[POS 1:36][strfield=36hel; intfield=46656; floatfield=6]
+i=37:[POS 1:37][strfield=37hel; intfield=50653; floatfield=6.08276]
+i=38:[POS 1:38][strfield=38hel; intfield=54872; floatfield=6.16441]
+i=39:[POS 1:39][strfield=39hel; intfield=59319; floatfield=6.245]
+i=40:[POS 1:40][strfield=40hel; intfield=64000; floatfield=6.32456]
+i=41:[POS 1:41][strfield=41hel; intfield=68921; floatfield=6.40312]
+i=42:[POS 1:42][strfield=42hel; intfield=74088; floatfield=6.48074]
+i=43:[POS 1:43][strfield=43hel; intfield=79507; floatfield=6.55744]
+i=44:[POS 1:44][strfield=44hel; intfield=85184; floatfield=6.63325]
+i=45:[POS 1:45][strfield=45hel; intfield=91125; floatfield=6.7082]
+i=46:[POS 1:46][strfield=46hel; intfield=97336; floatfield=6.78233]
+i=47:[POS 1:47][strfield=47hel; intfield=103823; floatfield=6.85565]
+i=48:[POS 1:48][strfield=48hel; intfield=110592; floatfield=6.9282]
+i=49:[POS 1:49][strfield=49hel; intfield=117649; floatfield=7]
+i=50:[POS 1:50][strfield=50hel; intfield=125000; floatfield=7.07107]
+i=51:[POS 1:51][strfield=51hel; intfield=132651; floatfield=7.14143]
+i=52:[POS 1:52][strfield=52hel; intfield=140608; floatfield=7.2111]
+i=53:[POS 1:53][strfield=53hel; intfield=148877; floatfield=7.28011]
+i=54:[POS 1:54][strfield=54hel; intfield=157464; floatfield=7.34847]
+i=55:[POS 1:55][strfield=55hel; intfield=166375; floatfield=7.4162]
+i=56:[POS 1:56][strfield=56hel; intfield=175616; floatfield=7.48331]
+i=57:[POS 1:57][strfield=57hel; intfield=185193; floatfield=7.54983]
+i=58:[POS 1:58][strfield=58hel; intfield=195112; floatfield=7.61577]
+i=59:[POS 1:59][strfield=59hel; intfield=205379; floatfield=7.68115]
+i=60:[POS 1:60][strfield=60hel; intfield=216000; floatfield=7.74597]
+i=61:[POS 1:61][strfield=61hel; intfield=226981; floatfield=7.81025]
+i=62:[POS 1:62][strfield=62hel; intfield=238328; floatfield=7.87401]
+i=63:[POS 1:63][strfield=63hel; intfield=250047; floatfield=7.93725]
+i=64:[POS 1:64][strfield=64hel; intfield=262144; floatfield=8]
+i=65:[POS 1:65][strfield=65hel; intfield=274625; floatfield=8.06226]
+i=66:[POS 1:66][strfield=66hel; intfield=287496; floatfield=8.12404]
+i=67:[POS 1:67][strfield=67hel; intfield=300763; floatfield=8.18535]
+i=68:[POS 1:68][strfield=68hel; intfield=314432; floatfield=8.24621]
+i=69:[POS 1:69][strfield=69hel; intfield=328509; floatfield=8.30662]
+i=70:[POS 1:70][strfield=70hel; intfield=343000; floatfield=8.3666]
+i=71:[POS 1:71][strfield=71hel; intfield=357911; floatfield=8.42615]
+i=72:[POS 1:72][strfield=72hel; intfield=373248; floatfield=8.48528]
+i=73:[POS 1:73][strfield=73hel; intfield=389017; floatfield=8.544]
+i=74:[POS 1:74][strfield=74hel; intfield=405224; floatfield=8.60233]
+i=75:[POS 1:75][strfield=75hel; intfield=421875; floatfield=8.66025]
+i=76:[POS 1:76][strfield=76hel; intfield=438976; floatfield=8.7178]
+i=77:[POS 1:77][strfield=77hel; intfield=456533; floatfield=8.77496]
+i=78:[POS 1:78][strfield=78hel; intfield=474552; floatfield=8.83176]
+i=79:[POS 1:79][strfield=79hel; intfield=493039; floatfield=8.88819]
+i=80:[POS 1:80][strfield=80hel; intfield=512000; floatfield=8.94427]
+i=81:[POS 1:81][strfield=81hel; intfield=531441; floatfield=9]
+i=82:[POS 1:82][strfield=82hel; intfield=551368; floatfield=9.05539]
+i=83:[POS 1:83][strfield=83hel; intfield=571787; floatfield=9.11043]
+i=84:[POS 1:84][strfield=84hel; intfield=592704; floatfield=9.16515]
+i=85:[POS 1:85][strfield=85hel; intfield=614125; floatfield=9.21954]
+i=86:[POS 1:86][strfield=86hel; intfield=636056; floatfield=9.27362]
+i=87:[POS 1:87][strfield=87hel; intfield=658503; floatfield=9.32738]
+i=88:[POS 1:88][strfield=88hel; intfield=681472; floatfield=9.38083]
+i=89:[POS 1:89][strfield=89hel; intfield=704969; floatfield=9.43398]
+i=90:[POS 1:90][strfield=90hel; intfield=729000; floatfield=9.48683]
+i=91:[POS 1:91][strfield=91hel; intfield=753571; floatfield=9.53939]
+i=92:[POS 1:92][strfield=92hel; intfield=778688; floatfield=9.59166]
+i=93:[POS 1:93][strfield=93hel; intfield=804357; floatfield=9.64365]
+i=94:[POS 1:94][strfield=94hel; intfield=830584; floatfield=9.69536]
+i=95:[POS 1:95][strfield=95hel; intfield=857375; floatfield=9.74679]
+i=96:[POS 1:96][strfield=96hel; intfield=884736; floatfield=9.79796]
+i=97:[POS 1:97][strfield=97hel; intfield=912673; floatfield=9.84886]
+i=98:[POS 1:98][strfield=98hel; intfield=941192; floatfield=9.89949]
+i=99:[POS 1:99][strfield=99hel; intfield=970299; floatfield=9.94987]
+i=100:[POS 1:100][strfield=100hel; intfield=1000000; floatfield=10]
+i=101:[POS 1:101][strfield=101hel; intfield=1030301; floatfield=10.0499]
+i=102:[POS 1:102][strfield=102hel; intfield=1061208; floatfield=10.0995]
+i=103:[POS 1:103][strfield=103hel; intfield=1092727; floatfield=10.1489]
+i=104:[POS 1:104][strfield=104hel; intfield=1124864; floatfield=10.198]
+i=105:[POS 1:105][strfield=105hel; intfield=1157625; floatfield=10.247]
+i=106:[POS 1:106][strfield=106hel; intfield=1191016; floatfield=10.2956]
+i=107:[POS 1:107][strfield=107hel; intfield=1225043; floatfield=10.3441]
+i=108:[POS 1:108][strfield=108hel; intfield=1259712; floatfield=10.3923]
+i=109:[POS 1:109][strfield=109hel; intfield=1295029; floatfield=10.4403]
+i=110:[POS 1:110][strfield=110hel; intfield=1331000; floatfield=10.4881]
+i=111:[POS 1:111][strfield=111hel; intfield=1367631; floatfield=10.5357]
+i=112:[POS 1:112][strfield=112hel; intfield=1404928; floatfield=10.583]
+i=113:[POS 1:113][strfield=113hel; intfield=1442897; floatfield=10.6301]
+i=114:[POS 1:114][strfield=114hel; intfield=1481544; floatfield=10.6771]
+i=115:[POS 1:115][strfield=115hel; intfield=1520875; floatfield=10.7238]
+i=116:[POS 1:116][strfield=116hel; intfield=1560896; floatfield=10.7703]
+i=117:[POS 1:117][strfield=117hel; intfield=1601613; floatfield=10.8167]
+i=118:[POS 1:118][strfield=118hel; intfield=1643032; floatfield=10.8628]
+i=119:[POS 1:119][strfield=119hel; intfield=1685159; floatfield=10.9087]
+i=120:[POS 1:120][strfield=120hel; intfield=1728000; floatfield=10.9545]
+i=121:[POS 1:121][strfield=121hel; intfield=1771561; floatfield=11]
+i=122:[POS 1:122][strfield=122hel; intfield=1815848; floatfield=11.0454]
+i=123:[POS 1:123][strfield=123hel; intfield=1860867; floatfield=11.0905]
+i=124:[POS 1:124][strfield=124hel; intfield=1906624; floatfield=11.1355]
+i=125:[POS 1:125][strfield=125hel; intfield=1953125; floatfield=11.1803]
+i=126:[POS 1:126][strfield=126hel; intfield=2000376; floatfield=11.225]
+i=127:[POS 1:127][strfield=127hel; intfield=2048383; floatfield=11.2694]
+i=128:[POS 1:128][strfield=128hel; intfield=2097152; floatfield=11.3137]
+i=129:[POS 1:129][strfield=129hel; intfield=2146689; floatfield=11.3578]
+i=130:[POS 1:130][strfield=130hel; intfield=2197000; floatfield=11.4018]
+i=131:[POS 1:131][strfield=131hel; intfield=2248091; floatfield=11.4455]
+i=132:[POS 1:132][strfield=132hel; intfield=2299968; floatfield=11.4891]
+i=133:[POS 1:133][strfield=133hel; intfield=2352637; floatfield=11.5326]
+i=134:[POS 1:134][strfield=134hel; intfield=2406104; floatfield=11.5758]
+i=135:[POS 1:135][strfield=135hel; intfield=2460375; floatfield=11.619]
+i=136:[POS 1:136][strfield=136hel; intfield=2515456; floatfield=11.6619]
+i=137:[POS 1:137][strfield=137hel; intfield=2571353; floatfield=11.7047]
+i=138:[POS 1:138][strfield=138hel; intfield=2628072; floatfield=11.7473]
+i=139:[POS 1:139][strfield=139hel; intfield=2685619; floatfield=11.7898]
+i=140:[POS 1:140][strfield=140hel; intfield=2744000; floatfield=11.8322]
+i=141:[POS 1:141][strfield=141hel; intfield=2803221; floatfield=11.8743]
+i=142:[POS 1:142][strfield=142hel; intfield=2863288; floatfield=11.9164]
+i=143:[POS 1:143][strfield=143hel; intfield=2924207; floatfield=11.9583]
+i=144:[POS 1:144][strfield=144hel; intfield=2985984; floatfield=12]
+i=145:[POS 1:145][strfield=145hel; intfield=3048625; floatfield=12.0416]
+i=146:[POS 1:146][strfield=146hel; intfield=3112136; floatfield=12.083]
+i=147:[POS 1:147][strfield=147hel; intfield=3176523; floatfield=12.1244]
+i=148:[POS 1:148][strfield=148hel; intfield=3241792; floatfield=12.1655]
+i=149:[POS 1:149][strfield=149hel; intfield=3307949; floatfield=12.2066]
+i=150:[POS 1:150][strfield=150hel; intfield=3375000; floatfield=12.2474]
+i=151:[POS 1:151][strfield=151hel; intfield=3442951; floatfield=12.2882]
+i=152:[POS 1:152][strfield=152hel; intfield=3511808; floatfield=12.3288]
+i=153:[POS 1:153][strfield=153hel; intfield=3581577; floatfield=12.3693]
+i=154:[POS 1:154][strfield=154hel; intfield=3652264; floatfield=12.4097]
+i=155:[POS 1:155][strfield=155hel; intfield=3723875; floatfield=12.4499]
+i=156:[POS 1:156][strfield=156hel; intfield=3796416; floatfield=12.49]
+i=157:[POS 2:0][strfield=157hel; intfield=3869893; floatfield=12.53]
+i=158:[POS 2:1][strfield=158hel; intfield=3944312; floatfield=12.5698]
+i=159:[POS 2:2][strfield=159hel; intfield=4019679; floatfield=12.6095]
+i=160:[POS 2:3][strfield=160hel; intfield=4096000; floatfield=12.6491]
+i=161:[POS 2:4][strfield=161hel; intfield=4173281; floatfield=12.6886]
+i=162:[POS 2:5][strfield=162hel; intfield=4251528; floatfield=12.7279]
+i=163:[POS 2:6][strfield=163hel; intfield=4330747; floatfield=12.7671]
+i=164:[POS 2:7][strfield=164hel; intfield=4410944; floatfield=12.8062]
+i=165:[POS 2:8][strfield=165hel; intfield=4492125; floatfield=12.8452]
+i=166:[POS 2:9][strfield=166hel; intfield=4574296; floatfield=12.8841]
+i=167:[POS 2:10][strfield=167hel; intfield=4657463; floatfield=12.9228]
+i=168:[POS 2:11][strfield=168hel; intfield=4741632; floatfield=12.9615]
+i=169:[POS 2:12][strfield=169hel; intfield=4826809; floatfield=13]
+i=170:[POS 2:13][strfield=170hel; intfield=4913000; floatfield=13.0384]
+i=171:[POS 2:14][strfield=171hel; intfield=5000211; floatfield=13.0767]
+i=172:[POS 2:15][strfield=172hel; intfield=5088448; floatfield=13.1149]
+i=173:[POS 2:16][strfield=173hel; intfield=5177717; floatfield=13.1529]
+i=174:[POS 2:17][strfield=174hel; intfield=5268024; floatfield=13.1909]
+i=175:[POS 2:18][strfield=175hel; intfield=5359375; floatfield=13.2288]
+i=176:[POS 2:19][strfield=176hel; intfield=5451776; floatfield=13.2665]
+i=177:[POS 2:20][strfield=177hel; intfield=5545233; floatfield=13.3041]
+i=178:[POS 2:21][strfield=178hel; intfield=5639752; floatfield=13.3417]
+i=179:[POS 2:22][strfield=179hel; intfield=5735339; floatfield=13.3791]
+i=180:[POS 2:23][strfield=180hel; intfield=5832000; floatfield=13.4164]
+i=181:[POS 2:24][strfield=181hel; intfield=5929741; floatfield=13.4536]
+i=182:[POS 2:25][strfield=182hel; intfield=6028568; floatfield=13.4907]
+i=183:[POS 2:26][strfield=183hel; intfield=6128487; floatfield=13.5277]
+i=184:[POS 2:27][strfield=184hel; intfield=6229504; floatfield=13.5647]
+i=185:[POS 2:28][strfield=185hel; intfield=6331625; floatfield=13.6015]
+i=186:[POS 2:29][strfield=186hel; intfield=6434856; floatfield=13.6382]
+i=187:[POS 2:30][strfield=187hel; intfield=6539203; floatfield=13.6748]
+i=188:[POS 2:31][strfield=188hel; intfield=6644672; floatfield=13.7113]
+i=189:[POS 2:32][strfield=189hel; intfield=6751269; floatfield=13.7477]
+i=190:[POS 2:33][strfield=190hel; intfield=6859000; floatfield=13.784]
+i=191:[POS 2:34][strfield=191hel; intfield=6967871; floatfield=13.8203]
+i=192:[POS 2:35][strfield=192hel; intfield=7077888; floatfield=13.8564]
+i=193:[POS 2:36][strfield=193hel; intfield=7189057; floatfield=13.8924]
+i=194:[POS 2:37][strfield=194hel; intfield=7301384; floatfield=13.9284]
+i=195:[POS 2:38][strfield=195hel; intfield=7414875; floatfield=13.9642]
+i=196:[POS 2:39][strfield=196hel; intfield=7529536; floatfield=14]
+i=197:[POS 2:40][strfield=197hel; intfield=7645373; floatfield=14.0357]
+i=198:[POS 2:41][strfield=198hel; intfield=7762392; floatfield=14.0712]
+i=199:[POS 2:42][strfield=199hel; intfield=7880599; floatfield=14.1067]
+[TABLE NAME = testfile]
+    recordsize=52
+    recordcount=200
+    pagecount=3
+    FIELDS:
+        [strfield] type=1 size=32 pos=8
+        [intfield] type=0 size=4 pos=40
+        [floatfield] type=2 size=8 pos=44
+i=0:[strfield=3hel; intfield=27; floatfield=1.73205]
+i=1:[strfield=12hel; intfield=1728; floatfield=3.4641]
+i=2:[strfield=24hel; intfield=13824; floatfield=4.89898]
+i=3:[strfield=41hel; intfield=68921; floatfield=6.40312]
+i=4:[strfield=45hel; intfield=91125; floatfield=6.7082]
+i=5:[strfield=47hel; intfield=103823; floatfield=6.85565]
+i=6:[strfield=62hel; intfield=238328; floatfield=7.87401]
+i=7:[strfield=74hel; intfield=405224; floatfield=8.60233]
+i=8:[strfield=109hel; intfield=1295029; floatfield=10.4403]
+i=9:[strfield=112hel; intfield=1404928; floatfield=10.583]
+i=10:[strfield=141hel; intfield=2803221; floatfield=11.8743]
+i=11:[strfield=162hel; intfield=4251528; floatfield=12.7279]
+i=12:[strfield=165hel; intfield=4492125; floatfield=12.8452]
+i=13:[strfield=185hel; intfield=6331625; floatfield=13.6015]
+[TABLE NAME = testfile]
+    recordsize=52
+    recordcount=200
+    pagecount=3
+    FIELDS:
+        [strfield] type=1 size=32 pos=8
+        [intfield] type=0 size=4 pos=40
+        [floatfield] type=2 size=8 pos=44
+i=0:[strfield=0hel; intfield=0; floatfield=0]
+i=1:[strfield=1hel; intfield=1; floatfield=1]
+i=2:[strfield=2hel; intfield=8; floatfield=1.41421]
+i=3:[strfield=3hel; intfield=27; floatfield=1.73205]
+i=4:[strfield=4hel; intfield=64; floatfield=2]
+i=5:[strfield=5hel; intfield=125; floatfield=2.23607]
+i=6:[strfield=6hel; intfield=216; floatfield=2.44949]
+i=7:[strfield=7hel; intfield=343; floatfield=2.64575]
+i=8:[strfield=8hel; intfield=512; floatfield=2.82843]
+i=9:[strfield=9hel; intfield=729; floatfield=3]
+i=10:[strfield=10hel; intfield=1000; floatfield=3.16228]
+i=11:[strfield=11hel; intfield=1331; floatfield=3.31662]
+i=12:[strfield=12hel; intfield=1728; floatfield=3.4641]
+i=13:[strfield=13hel; intfield=2197; floatfield=3.60555]
+i=14:[strfield=14hel; intfield=2744; floatfield=3.74166]
+i=15:[strfield=15hel; intfield=3375; floatfield=3.87298]
+i=16:[strfield=16hel; intfield=4096; floatfield=4]
+i=17:[strfield=17hel; intfield=4913; floatfield=4.12311]
+i=18:[strfield=18hel; intfield=5832; floatfield=4.24264]
+i=19:[strfield=19hel; intfield=6859; floatfield=4.3589]
+i=20:[strfield=20hel; intfield=8000; floatfield=4.47214]
+i=21:[strfield=21hel; intfield=9261; floatfield=4.58258]
+i=22:[strfield=22hel; intfield=10648; floatfield=4.69042]
+i=23:[strfield=23hel; intfield=12167; floatfield=4.79583]
+i=24:[strfield=24hel; intfield=13824; floatfield=4.89898]
+i=25:[strfield=25hel; intfield=15625; floatfield=5]
+i=26:[strfield=26hel; intfield=17576; floatfield=5.09902]
+i=27:[strfield=27hel; intfield=19683; floatfield=5.19615]
+i=28:[strfield=28hel; intfield=21952; floatfield=5.2915]
+i=29:[strfield=29hel; intfield=24389; floatfield=5.38516]
+i=30:[strfield=30hel; intfield=27000; floatfield=5.47723]
+i=31:[strfield=31hel; intfield=29791; floatfield=5.56776]
+i=32:[strfield=32hel; intfield=32768; floatfield=5.65685]
+i=33:[strfield=33hel; intfield=35937; floatfield=5.74456]
+i=34:[strfield=34hel; intfield=39304; floatfield=5.83095]
+i=35:[strfield=35hel; intfield=42875; floatfield=5.91608]
+i=36:[strfield=36hel; intfield=46656; floatfield=6]
+i=37:[strfield=37hel; intfield=50653; floatfield=6.08276]
+i=38:[strfield=38hel; intfield=54872; floatfield=6.16441]
+i=39:[strfield=39hel; intfield=59319; floatfield=6.245]
+i=40:[strfield=40hel; intfield=64000; floatfield=6.32456]
+i=41:[strfield=41hel; intfield=68921; floatfield=6.40312]
+i=42:[strfield=42hel; intfield=74088; floatfield=6.48074]
+i=43:[strfield=43hel; intfield=79507; floatfield=6.55744]
+i=44:[strfield=44hel; intfield=85184; floatfield=6.63325]
+i=45:[strfield=45hel; intfield=91125; floatfield=6.7082]
+i=46:[strfield=46hel; intfield=97336; floatfield=6.78233]
+i=47:[strfield=47hel; intfield=103823; floatfield=6.85565]
+i=48:[strfield=48hel; intfield=110592; floatfield=6.9282]
+i=49:[strfield=49hel; intfield=117649; floatfield=7]
+i=50:[strfield=50hel; intfield=125000; floatfield=7.07107]
+i=51:[strfield=51hel; intfield=132651; floatfield=7.14143]
+i=52:[strfield=52hel; intfield=140608; floatfield=7.2111]
+i=53:[strfield=53hel; intfield=148877; floatfield=7.28011]
+i=54:[strfield=54hel; intfield=157464; floatfield=7.34847]
+i=55:[strfield=55hel; intfield=166375; floatfield=7.4162]
+i=56:[strfield=56hel; intfield=175616; floatfield=7.48331]
+i=57:[strfield=57hel; intfield=185193; floatfield=7.54983]
+i=58:[strfield=58hel; intfield=195112; floatfield=7.61577]
+i=59:[strfield=59hel; intfield=205379; floatfield=7.68115]
+i=60:[strfield=60hel; intfield=216000; floatfield=7.74597]
+i=61:[strfield=61hel; intfield=226981; floatfield=7.81025]
+i=62:[strfield=62hel; intfield=238328; floatfield=7.87401]
+i=63:[strfield=63hel; intfield=250047; floatfield=7.93725]
+i=64:[strfield=64hel; intfield=262144; floatfield=8]
+i=65:[strfield=65hel; intfield=274625; floatfield=8.06226]
+i=66:[strfield=66hel; intfield=287496; floatfield=8.12404]
+i=67:[strfield=67hel; intfield=300763; floatfield=8.18535]
+i=68:[strfield=68hel; intfield=314432; floatfield=8.24621]
+i=69:[strfield=69hel; intfield=328509; floatfield=8.30662]
+i=70:[strfield=70hel; intfield=343000; floatfield=8.3666]
+i=71:[strfield=71hel; intfield=357911; floatfield=8.42615]
+i=72:[strfield=72hel; intfield=373248; floatfield=8.48528]
+i=73:[strfield=73hel; intfield=389017; floatfield=8.544]
+i=74:[strfield=74hel; intfield=405224; floatfield=8.60233]
+i=75:[strfield=75hel; intfield=421875; floatfield=8.66025]
+i=76:[strfield=76hel; intfield=438976; floatfield=8.7178]
+i=77:[strfield=77hel; intfield=456533; floatfield=8.77496]
+i=78:[strfield=78hel; intfield=474552; floatfield=8.83176]
+i=79:[strfield=79hel; intfield=493039; floatfield=8.88819]
+i=80:[strfield=80hel; intfield=512000; floatfield=8.94427]
+i=81:[strfield=81hel; intfield=531441; floatfield=9]
+i=82:[strfield=82hel; intfield=551368; floatfield=9.05539]
+i=83:[strfield=83hel; intfield=571787; floatfield=9.11043]
+i=84:[strfield=84hel; intfield=592704; floatfield=9.16515]
+i=85:[strfield=85hel; intfield=614125; floatfield=9.21954]
+i=86:[strfield=86hel; intfield=636056; floatfield=9.27362]
+i=87:[strfield=87hel; intfield=658503; floatfield=9.32738]
+i=88:[strfield=88hel; intfield=681472; floatfield=9.38083]
+i=89:[strfield=89hel; intfield=704969; floatfield=9.43398]
+i=90:[strfield=90hel; intfield=729000; floatfield=9.48683]
+i=91:[strfield=91hel; intfield=753571; floatfield=9.53939]
+i=92:[strfield=92hel; intfield=778688; floatfield=9.59166]
+i=93:[strfield=93hel; intfield=804357; floatfield=9.64365]
+i=94:[strfield=94hel; intfield=830584; floatfield=9.69536]
+i=95:[strfield=95hel; intfield=857375; floatfield=9.74679]
+i=96:[strfield=96hel; intfield=884736; floatfield=9.79796]
+i=97:[strfield=97hel; intfield=912673; floatfield=9.84886]
+i=98:[strfield=98hel; intfield=941192; floatfield=9.89949]
+i=99:[strfield=99hel; intfield=970299; floatfield=9.94987]
+i=100:[strfield=100hel; intfield=1000000; floatfield=10]
+i=101:[strfield=101hel; intfield=1030301; floatfield=10.0499]
+i=102:[strfield=102hel; intfield=1061208; floatfield=10.0995]
+i=103:[strfield=103hel; intfield=1092727; floatfield=10.1489]
+i=104:[strfield=104hel; intfield=1124864; floatfield=10.198]
+i=105:[strfield=105hel; intfield=1157625; floatfield=10.247]
+i=106:[strfield=106hel; intfield=1191016; floatfield=10.2956]
+i=107:[strfield=107hel; intfield=1225043; floatfield=10.3441]
+i=108:[strfield=108hel; intfield=1259712; floatfield=10.3923]
+i=109:[strfield=109hel; intfield=1295029; floatfield=10.4403]
+i=110:[strfield=110hel; intfield=1331000; floatfield=10.4881]
+i=111:[strfield=111hel; intfield=1367631; floatfield=10.5357]
+i=112:[strfield=112hel; intfield=1404928; floatfield=10.583]
+i=113:[strfield=113hel; intfield=1442897; floatfield=10.6301]
+i=114:[strfield=114hel; intfield=1481544; floatfield=10.6771]
+i=115:[strfield=115hel; intfield=1520875; floatfield=10.7238]
+i=116:[strfield=116hel; intfield=1560896; floatfield=10.7703]
+i=117:[strfield=117hel; intfield=1601613; floatfield=10.8167]
+i=118:[strfield=118hel; intfield=1643032; floatfield=10.8628]
+i=119:[strfield=119hel; intfield=1685159; floatfield=10.9087]
+i=120:[strfield=120hel; intfield=1728000; floatfield=10.9545]
+i=121:[strfield=121hel; intfield=1771561; floatfield=11]
+i=122:[strfield=122hel; intfield=1815848; floatfield=11.0454]
+i=123:[strfield=123hel; intfield=1860867; floatfield=11.0905]
+i=124:[strfield=124hel; intfield=1906624; floatfield=11.1355]
+i=125:[strfield=125hel; intfield=1953125; floatfield=11.1803]
+i=126:[strfield=126hel; intfield=2000376; floatfield=11.225]
+i=127:[strfield=127hel; intfield=2048383; floatfield=11.2694]
+i=128:[strfield=128hel; intfield=2097152; floatfield=11.3137]
+i=129:[strfield=129hel; intfield=2146689; floatfield=11.3578]
+i=130:[strfield=130hel; intfield=2197000; floatfield=11.4018]
+i=131:[strfield=131hel; intfield=2248091; floatfield=11.4455]
+i=132:[strfield=132hel; intfield=2299968; floatfield=11.4891]
+i=133:[strfield=133hel; intfield=2352637; floatfield=11.5326]
+i=134:[strfield=134hel; intfield=2406104; floatfield=11.5758]
+i=135:[strfield=135hel; intfield=2460375; floatfield=11.619]
+i=136:[strfield=136hel; intfield=2515456; floatfield=11.6619]
+i=137:[strfield=137hel; intfield=2571353; floatfield=11.7047]
+i=138:[strfield=138hel; intfield=2628072; floatfield=11.7473]
+i=139:[strfield=139hel; intfield=2685619; floatfield=11.7898]
+i=140:[strfield=140hel; intfield=2744000; floatfield=11.8322]
+i=141:[strfield=141hel; intfield=2803221; floatfield=11.8743]
+i=142:[strfield=142hel; intfield=2863288; floatfield=11.9164]
+i=143:[strfield=143hel; intfield=2924207; floatfield=11.9583]
+i=144:[strfield=144hel; intfield=2985984; floatfield=12]
+i=145:[strfield=145hel; intfield=3048625; floatfield=12.0416]
+i=146:[strfield=146hel; intfield=3112136; floatfield=12.083]
+i=147:[strfield=147hel; intfield=3176523; floatfield=12.1244]
+i=148:[strfield=148hel; intfield=3241792; floatfield=12.1655]
+i=149:[strfield=149hel; intfield=3307949; floatfield=12.2066]
+i=150:[strfield=150hel; intfield=3375000; floatfield=12.2474]
+i=151:[strfield=151hel; intfield=3442951; floatfield=12.2882]
+i=152:[strfield=152hel; intfield=3511808; floatfield=12.3288]
+i=153:[strfield=153hel; intfield=3581577; floatfield=12.3693]
+i=154:[strfield=154hel; intfield=3652264; floatfield=12.4097]
+i=155:[strfield=155hel; intfield=3723875; floatfield=12.4499]
+i=156:[strfield=156hel; intfield=3796416; floatfield=12.49]
+i=157:[strfield=157hel; intfield=3869893; floatfield=12.53]
+i=158:[strfield=158hel; intfield=3944312; floatfield=12.5698]
+i=159:[strfield=159hel; intfield=4019679; floatfield=12.6095]
+i=160:[strfield=160hel; intfield=4096000; floatfield=12.6491]
+i=161:[strfield=161hel; intfield=4173281; floatfield=12.6886]
+i=162:[strfield=162hel; intfield=4251528; floatfield=12.7279]
+i=163:[strfield=163hel; intfield=4330747; floatfield=12.7671]
+i=164:[strfield=164hel; intfield=4410944; floatfield=12.8062]
+i=165:[strfield=165hel; intfield=4492125; floatfield=12.8452]
+i=166:[strfield=166hel; intfield=4574296; floatfield=12.8841]
+i=167:[strfield=167hel; intfield=4657463; floatfield=12.9228]
+i=168:[strfield=168hel; intfield=4741632; floatfield=12.9615]
+i=169:[strfield=169hel; intfield=4826809; floatfield=13]
+i=170:[strfield=170hel; intfield=4913000; floatfield=13.0384]
+i=171:[strfield=171hel; intfield=5000211; floatfield=13.0767]
+i=172:[strfield=172hel; intfield=5088448; floatfield=13.1149]
+i=173:[strfield=173hel; intfield=5177717; floatfield=13.1529]
+i=174:[strfield=174hel; intfield=5268024; floatfield=13.1909]
+i=175:[strfield=175hel; intfield=5359375; floatfield=13.2288]
+i=176:[strfield=176hel; intfield=5451776; floatfield=13.2665]
+i=177:[strfield=177hel; intfield=5545233; floatfield=13.3041]
+i=178:[strfield=178hel; intfield=5639752; floatfield=13.3417]
+i=179:[strfield=179hel; intfield=5735339; floatfield=13.3791]
+i=180:[strfield=180hel; intfield=5832000; floatfield=13.4164]
+i=181:[strfield=181hel; intfield=5929741; floatfield=13.4536]
+i=182:[strfield=182hel; intfield=6028568; floatfield=13.4907]
+i=183:[strfield=183hel; intfield=6128487; floatfield=13.5277]
+i=184:[strfield=184hel; intfield=6229504; floatfield=13.5647]
+i=185:[strfield=185hel; intfield=6331625; floatfield=13.6015]
+i=186:[strfield=186hel; intfield=6434856; floatfield=13.6382]
+i=187:[strfield=187hel; intfield=6539203; floatfield=13.6748]
+i=188:[strfield=188hel; intfield=6644672; floatfield=13.7113]
+i=189:[strfield=189hel; intfield=6751269; floatfield=13.7477]
+i=190:[strfield=190hel; intfield=6859000; floatfield=13.784]
+i=191:[strfield=191hel; intfield=6967871; floatfield=13.8203]
+i=192:[strfield=192hel; intfield=7077888; floatfield=13.8564]
+i=193:[strfield=193hel; intfield=7189057; floatfield=13.8924]
+i=194:[strfield=194hel; intfield=7301384; floatfield=13.9284]
+i=195:[strfield=195hel; intfield=7414875; floatfield=13.9642]
+i=196:[strfield=196hel; intfield=7529536; floatfield=14]
+i=197:[strfield=197hel; intfield=7645373; floatfield=14.0357]
+i=198:[strfield=198hel; intfield=7762392; floatfield=14.0712]
+i=199:[strfield=199hel; intfield=7880599; floatfield=14.1067]
