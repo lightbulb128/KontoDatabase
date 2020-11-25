@@ -101,6 +101,8 @@ public:
 
     string getFilename();
 
+    KontoResult drop();
+
     void debugPrintKey(char* ptr);
     void debugPrintRecord(char* ptr);
     void debugPrintPage(int pageID, bool recur = true);

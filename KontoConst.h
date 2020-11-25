@@ -38,6 +38,7 @@ enum KontoResult {
     KR_UNDEFINED_FIELD          = 0x00000103,
     KR_DATA_TOO_LONG            = 0x00000104,
     KR_TYPE_NOT_MATCHING        = 0x00000105,
+    KR_NO_SUCH_COLUMN           = 0x00000106,
     // ERROR IN KONTOINDEX
     KR_EMPTY_KEYLIST            = 0x00000200,
     KR_NOT_FOUND                = 0x00000201,
@@ -45,7 +46,11 @@ enum KontoResult {
     // ERROR IN KONTODBMGR
     KR_NOT_USING_DATABASE       = 0x00000300,
     KR_NO_SUCH_DATABASE         = 0x00000301,
-    KR_DATABASE_NAME_EXISTS     = 0x00000302
+    KR_DATABASE_NAME_EXISTS     = 0x00000302,
+    // ERROR ABOUT PRIMARY KEY  
+    KR_PRIMARY_REDECLARATION    = 0x00000400,
+    KR_PRIMARY_REPETITION       = 0x00000401,
+    KR_NO_PRIMARY               = 0x00000402
 };
 
 const KontoKeyType KT_INT        = 0x0;
@@ -63,6 +68,8 @@ std::vector<string> get_files(string prefix);
 std::vector<string> get_index_key_names(string fullFilename);
 
 void remove_file(string filename);
+
+void rename_file(string old, string newname); 
 
 // VALUE INTEGER
 inline uint& VI(char* ptr){return *(uint*)(ptr);}
@@ -88,6 +95,14 @@ inline void PS(charptr& dest, char* src){
 // PASTE STRING
 inline void PS(charptr& dest, const string& src) {
     strcpy(dest, src.c_str()); dest+=src.length()+1;
+}
+// PASTE DATA
+inline void PD(charptr& dest, charptr src, uint cnt) {
+    memcpy(dest, src, cnt); dest+=cnt;
+}
+// PLUS EMPTY
+inline void PE(charptr& dest, uint cnt) {
+    memset(dest, 0, cnt); dest += cnt;
 }
 
 #endif

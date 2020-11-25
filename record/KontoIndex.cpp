@@ -707,6 +707,12 @@ KontoResult KontoIndex::recreate(KontoIndex* original, KontoIndex** handle) {
     return KR_OK;
 }
 
+KontoResult KontoIndex::drop() {
+    string fullFilename = get_filename(filename);
+    remove_file(fullFilename);
+    return KR_OK;
+}
+
 KontoResult KontoIndex::queryInterval(char* lower, char* upper, KontoQRes& out,
     bool lowerIncluded, bool upperIncluded)
 {

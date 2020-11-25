@@ -28,8 +28,8 @@ vector<string> get_files(string prefix) {
     vector<string> ret = vector<string>();
     std::filesystem::path path(".");
     std::filesystem::directory_iterator list(path);
-    for (auto& iter:list) {
-        string filename = iter.path().filename();
+    for (auto& iter : list) {
+        string filename = iter.path().filename().string();
         if (get_files_start_with(filename, prefix)) ret.push_back(filename);
     }
     return ret;
@@ -57,4 +57,10 @@ void remove_file(string filename) {
 string strip_filename(string filename) {
     int p = filename.find_last_of('.');
     return filename.substr(0, p);
+}
+
+void rename_file(string old, string newname) {
+    std::filesystem::path path(old);
+    std::filesystem::path newpath(newname);
+    std::filesystem::rename(path, newpath);
 }

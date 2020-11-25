@@ -27,6 +27,16 @@ struct KontoColumnDefinition {
         isForeign(_isForeign), foreignTable(_foreignTable), foreignName(_foreignName), 
         defaultValue(_defaultValue) {}
     KontoColumnDefinition(){}
+    KontoColumnDefinition(const KontoColumnDefinition& def):
+        name(def.name), type(def.type), size(def.size), nullable(def.nullable),
+        isForeign(def.isForeign), foreignTable(def.foreignTable),
+        foreignName(def.foreignName), position(def.position) 
+    {
+        if (def.defaultValue) {
+            defaultValue = new char[size]; 
+            memcpy(defaultValue, def.defaultValue, def.size);
+        } else defaultValue = nullptr;
+    }
 };
 
 typedef KontoColumnDefinition KontoCDef;
@@ -86,10 +96,13 @@ private:
     int pageCount; // 页的数量
     int recordSize; // 一条记录所占用空间大小（以char=1为单位）
     string filename;
+    KontoIndex* primaryIndex;
     // 在当前目录下查找已有的索引文件并加载。
     void loadIndices(); 
 
     bool hasPrimaryKey();
+
+    void recreatePrimaryIndex();
     
 public:
     ~KontoTableFile();
@@ -138,7 +151,7 @@ public:
     // 获取某一条记录，以pos指定，将数据存储到dest中
     KontoResult getDataCopied(KontoRPos& pos, char* dest);
     // 创建索引表并与该数据表绑定，handle非空时将存储创建的索引表的指针
-    KontoResult createIndex(vector<KontoKeyIndex>& keyIndices, KontoIndex** handle);
+    KontoResult createIndex(const vector<KontoKeyIndex>& keyIndices, KontoIndex** handle);
     // 删除所有索引表
     void removeIndices();
     // 向所有已经关联的索引表中添加记录
@@ -167,13 +180,16 @@ public:
 
     char* getRecordPointer(KontoRPos& pos, bool write);
 
+    KontoResult getKeyNames(const vector<uint>& keyIndices, vector<string>& out); 
+
+    KontoResult insertIndex(KontoRPos& pos, KontoIndex* dest);
+
     KontoResult alterAddPrimaryKey(const vector<uint>& primaryKeys);
     KontoResult alterDropPrimaryKey();
     KontoResult alterAddColumn(const KontoCDef& def);
-    KontoResult alterDropColumn(const KontoCDef& def);
+    KontoResult alterDropColumn(string name);
+    KontoResult alterRenameColumn(string old, string newname);
     KontoResult alterChangeColumn(string original, const KontoCDef& newdef);
-    KontoResult alterAddForeignKey(const KontoCDef& def);
-    KontoResult alterDropForeignKey(string name);
 
     void debugtest();
 };
