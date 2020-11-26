@@ -3,3 +3,8 @@ test.exe
 test.out
 *.log
 testfile.txt
+.vscode/
+test/*.out
+test/*.txt
+test/*.exe
+test/perm.id

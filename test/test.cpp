@@ -313,6 +313,100 @@ int test_index_2() {
     return 0;
 }
 
+void test_alter () {
+    KontoTableFile* table;
+    // create table
+    KontoResult result = KontoTableFile::createFile("testfile", &table);
+    KontoCDef def = KontoCDef("str", KT_STRING, 100);
+    table->defineField(def);
+    def = KontoCDef("num", KT_INT, 4);
+    table->defineField(def);
+    table->finishDefineField();
+    KontoKeyIndex keyNum; result = table->getKeyIndex("num", keyNum);
+    KontoKeyIndex keyStr; result = table->getKeyIndex("str", keyStr);
+    printf("Table created\n");
+    string datastr[40] = {
+        "Alice", "Bob", "Cindy", "David", "Eric",
+        "Frank", "Gina", "Helen", "Illa", "Jack",
+        "Kelvin", "Louis", "Mike", "Nancy", "Owen",
+        "Peter", "Quie", "Rose", "Sarah", "Tina",
+        "America", "Belgium", "Canada", "Denmark", "Estonia",
+        "France", "Germany", "Holland", "Iran", "Jordan",
+        "Korea", "Laos", "Mexico", "Nigeria", "Orthodox",
+        "Panama", "Queensland", "Russia", "Scotland", "Turkey"
+    };
+    char buffer[table->getRecordSize()];
+    for (int i=0;i<100;i++) {
+        table->setEntryInt(buffer, keyNum, i + 100 * (int((1+sin(i))*100)%10));
+        table->setEntryString(buffer, keyStr, datastr[i%40].c_str());
+        table->insertEntry(buffer, nullptr);
+    }
+    vector<uint> primaryKeys; primaryKeys.push_back(keyNum);
+    table->alterAddPrimaryKey(primaryKeys);
+    KontoIndex* indexPtr = table->getIndex(0);
+    assert(indexPtr != nullptr);
+    cout << "PRINT ALPHA" << endl;
+    table->debugtest();
+    indexPtr->debugPrint();
+    assert(table->hasPrimaryKey());
+
+    char defaultValue[8]; 
+    *(double*)(defaultValue) = 3.1415;
+    table->alterAddColumn(KontoCDef("float", KT_FLOAT, 8, true, false, "", "", defaultValue));
+    cout << "PRINT BETA" << endl;
+    indexPtr = table->getIndex(0);
+    assert(indexPtr != nullptr);
+    indexPtr->debugPrint();
+    assert(table->hasPrimaryKey());
+
+    uint keyFloat;
+    result = table->getKeyIndex("float", keyFloat);
+    KontoQRes q; table->allEntries(q);
+    cout << q.size() << endl;
+    for (int i=0;i<q.size();i++) {
+        KontoRPos pos = q.get(i);
+        table->editEntryFloat(pos, keyFloat, sqrt(i));
+    }
+    cout << "PRINT GAMMA" << endl;
+    table->debugtest();
+    indexPtr->debugPrint();
+    assert(table->hasPrimaryKey());
+
+    table->alterDropColumn("float");
+    indexPtr = table->getIndex(0);
+    assert(indexPtr != nullptr);
+    cout << "PRINT DELTA" << endl;
+    table->debugtest();
+    indexPtr->debugPrint();
+    assert(table->hasPrimaryKey());
+
+    table->alterRenameColumn("str", "name");
+    table->alterRenameColumn("num", "index");
+    cout << "PRINT EPSILON" << endl;
+    table->debugtest();
+    indexPtr->debugPrint();
+    assert(table->hasPrimaryKey());
+
+    table->alterChangeColumn("name", KontoCDef("numeric", KT_FLOAT, 8, true, false, "", "", defaultValue));
+    cout << "PRINT ZETA" << endl;
+    table->debugtest();
+    indexPtr->debugPrint();
+
+    table->alterDropPrimaryKey();
+    assert(!table->hasPrimaryKey());
+    primaryKeys.clear(); 
+    table->getKeyIndex("index", keyNum); table->getKeyIndex("numeric", keyFloat);
+    primaryKeys.push_back(keyNum); primaryKeys.push_back(keyFloat);
+    result = table->alterAddPrimaryKey(primaryKeys);
+    cout << result << endl;
+    indexPtr = table->getPrimaryIndex(); 
+    assert(table->hasPrimaryKey());
+    assert(indexPtr != nullptr);
+    cout << "PRINT ETA" << endl;
+    indexPtr->debugPrint();
+    table->close();
+}
+
 int test_debug() {
     auto p = get_files("testfile.index.");
     for (auto name: p) {
@@ -324,8 +418,7 @@ int test_debug() {
     return 0;
 }
 
-
 int main(){
-    test_record();
+    test_alter();
     return 0;
 }

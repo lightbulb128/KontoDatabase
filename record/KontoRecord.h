@@ -100,8 +100,6 @@ private:
     // 在当前目录下查找已有的索引文件并加载。
     void loadIndices(); 
 
-    bool hasPrimaryKey();
-
     void recreatePrimaryIndex();
     
 public:
@@ -162,8 +160,14 @@ public:
     KontoResult recreateIndices();
     // 获取索引表的指针
     KontoIndex* getIndex(uint id);
+
+    uint getIndexCount();
+
+    bool hasPrimaryKey();
     
     KontoIndex* getIndex(const vector<KontoKeyIndex>& keyIndices);
+    
+    KontoIndex* getPrimaryIndex();
     // 向cout输出一条记录
     void printRecord(char* record);
     // 向cout输出一条记录，通过pos指定

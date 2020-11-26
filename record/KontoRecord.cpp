@@ -423,6 +423,12 @@ void KontoTableFile::debugtest(){
         cout << "        [" << key.name << "]" << " type=" << key.type << " size=" << key.size
         << " pos=" << key.position << endl;
     }
+    KontoQRes q; allEntries(q); 
+    int i = 0;
+    for (auto item : q.items) {
+        cout << "   (" << i << ") "; printRecord(item, true); cout << endl;
+        i++;
+    }
 }
 
 KontoResult KontoTableFile::createIndex(const vector<KontoKeyIndex>& keyIndices, KontoIndex** handle) {
@@ -549,7 +555,7 @@ void KontoTableFile::printRecord(KontoRPos& pos, bool printPos) {
     char* data = new char[getRecordSize()];
     getDataCopied(pos, data);
     if (printPos) {
-        cout << "[POS " << pos.page << ":" << pos.id << "]";
+        cout << "[POS " << pos.page << ":" << pos.id << "] ";
     }
     printRecord(data);
     delete[] data;
@@ -643,6 +649,7 @@ void KontoTableFile::recreatePrimaryIndex() {
     vector<string> primaryKeyNames;
     KontoResult res = getKeyNames(primaryKeys, primaryKeyNames);
     string indexFilename = KontoIndex::getIndexFilename(filename, primaryKeyNames);
+    n = indices.size();
     for (int i=0;i<n;i++) {
         if (indices[i]->getFilename() == indexFilename) {
             indices.erase(indices.begin() + i);
@@ -669,6 +676,7 @@ KontoResult KontoTableFile::alterAddColumn(const KontoCDef& def) {
     ret->finishDefineField();
     KontoQRes q; allEntries(q);
     char* buffer = new char[ret->getRecordSize()];
+    //cout << "query entries " << q.size() << endl;
     for (auto item : q.items) {
         getDataCopied(item, buffer);
         if (VI(buffer + 4) & FLAGS_DELETED) continue;
@@ -689,6 +697,7 @@ KontoResult KontoTableFile::alterAddColumn(const KontoCDef& def) {
     indices.clear();
     recordCount = ret->recordCount;
     recordSize = ret->recordSize;
+    pageCount = ret->pageCount;
     fileID = pmgr.getFileManager().openFile(get_filename(filename).c_str());
     metapage = pmgr.getPage(fileID, 0, bufindex);
     ptr = metapage + POS_META_PRIMARYCOUNT;
@@ -706,20 +715,23 @@ KontoResult KontoTableFile::alterDropColumn(string name) {
     if (res != KR_OK) return res;
     KontoTableFile* ret;
     createFile(filename + ".__altertemp", &ret);
-    for (auto item : keys) ret->defineField(item);
+    for (int i=0;i<keys.size();i++) if (i!=keyId) ret->defineField(keys[i]);
     ret->finishDefineField();
     char* buffer = new char[ret->getRecordSize()];
     char* origin = new char[getRecordSize()];
     KontoQRes q; allEntries(q);
     int pos = keys[keyId].position, size = keys[keyId].size, tot = recordSize;
     assert(tot - size == ret->getRecordSize());
+    //cout << "drop : to copy " << q.size() << endl;
+    //int c = 0;
     for (auto item : q.items) {
         getDataCopied(item, origin);
-        if (VI(buffer + 4) & FLAGS_DELETED) continue;
+        if (VI(origin + 4) & FLAGS_DELETED) continue;
         memcpy(buffer, origin, pos);
         memcpy(buffer + pos, origin + pos + size, recordSize - pos - size);
         ret->insertEntry(buffer, nullptr);
     }
+    //cout << "drop: copied " << c << endl;
     int bufindex;
     KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
     KontoPage ptr = metapage + POS_META_PRIMARYCOUNT;
@@ -737,7 +749,9 @@ KontoResult KontoTableFile::alterDropColumn(string name) {
     keys = ret->keys;
     indices.clear();
     recordCount = ret->recordCount;
+    cout << "drop: recordcount " << recordCount << endl;
     recordSize = ret->recordSize;
+    pageCount = ret->pageCount;
     fileID = pmgr.getFileManager().openFile(get_filename(filename).c_str());
     metapage = pmgr.getPage(fileID, 0, bufindex);
     ptr = metapage + POS_META_PRIMARYCOUNT;
@@ -757,6 +771,7 @@ KontoResult KontoTableFile::alterChangeColumn(string original, const KontoCDef& 
 }
 
 KontoResult KontoTableFile::alterRenameColumn(string old, string newname) {
+    removeIndices();
     uint keyId; 
     KontoResult res = getKeyIndex(old.c_str(), keyId);
     if (res!=KR_OK) return KR_NO_SUCH_COLUMN;
@@ -780,4 +795,13 @@ KontoResult KontoTableFile::alterRenameColumn(string old, string newname) {
         }
     }
     pmgr.markDirty(bufindex);
+    recreatePrimaryIndex();
+    return KR_OK;
+}
+
+uint KontoTableFile::getIndexCount() {return indices.size();}
+
+KontoIndex* KontoTableFile::getPrimaryIndex() {
+    if (hasPrimaryKey()) return primaryIndex;
+    else return nullptr;
 }
