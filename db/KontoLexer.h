@@ -37,7 +37,6 @@ enum TokenKind {
     TK_MINUS, TK_TILDE, TK_EXCLAMATION, TK_NOT_EQUAL, 
     TK_ASSIGN,
     TK_PLUS, TK_ASTERISK, TK_LSLASH, TK_PERCENT, 
-    TK_LOR, TK_LAND, TK_OR, TK_AND, 
     TK_QUESTION, TK_COLON, 
     TK_LBRACKET, TK_RBRACKET,
     // eof
@@ -49,9 +48,12 @@ enum TokenKind {
 struct Token{
     TokenKind tokenKind;
     int value;
+    double doubleValue;
     string identifier;
     int row, column;
     Token(TokenKind tokenKind, int value=0):tokenKind(tokenKind), value(value){identifier="";}
+    Token(TokenKind tokenKind, double value):tokenKind(tokenKind), doubleValue(value){identifier="";}
+    Token(TokenKind tokenKind, string str):tokenKind(tokenKind), identifier(str){}
     Token(){tokenKind=TK_UNDEFINED; value=0; identifier="";}
     Token(string identifier):identifier(identifier), tokenKind(TK_IDENTIFIER), value(0){}
     void setRC(int r, int c){row=r;column=c;}
@@ -85,9 +87,11 @@ private:
     bool flagKeyword;
     bool flagValue;
     int currentValue;
-    bool isValueHex;
-    bool isValueChar;
-    bool isValueCharEscape;
+    double currentFloatValue;
+    double currentFloatUnit;
+    bool currentDecimal;
+    bool isFloat;
+    bool isString;
     string currentIdentifier;
     int currentLength;
     std::istream* stream;
@@ -117,6 +121,7 @@ public:
     void setStream(std::istream* input);
     void addKeyword(const char* keyword, TokenKind tk);
     void addDefaultKeywords();
+    void appendErrorInfo(string str);
     Token nextToken();
     void putback(Token token);
     void killSpaces();

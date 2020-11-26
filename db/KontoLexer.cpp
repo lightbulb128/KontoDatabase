@@ -18,16 +18,9 @@ std::ostream& operator <<(std::ostream& stream, const Token& t){
     switch (t.tokenKind) {
         case TK_IDENTIFIER: stream << "Identifier: " << t.identifier; break;
         case TK_INT_VALUE: stream << "Integer Value: " << t.value; break;
-        case TK_CHAR_VALUE: 
-            stream << "Char Value: ";
-            if (t.value >= 0x21 && t.value <= 0x7e) 
-                stream << "\'" << (char)(t.value)  << "\'";
-            else 
-                stream << t.value;
-            break;
-        case TK_RETURN: stream << "Return"; break;
-        case TK_INT: stream << "Integer"; break;
-        case TK_CHAR: stream << "Char"; break;
+        case TK_FLOAT_VALUE: 
+            stream << "Float Value: " << t.doubleValue; break;
+        case TK_STRING_VALUE: stream << "String Value: " << t.identifier; break;
         case TK_LPAREN: stream << "LParen ("; break;
         case TK_RPAREN: stream << "RParen )"; break;
         case TK_LBRACE: stream << "LBrace {"; break;
@@ -53,25 +46,46 @@ std::ostream& operator <<(std::ostream& stream, const Token& t){
         case TK_ASTERISK: stream << "Asterisk *"; break;
         case TK_LSLASH: stream << "LSlash /"; break;
         case TK_PERCENT: stream << "Percentage %"; break;
-        case TK_AND: stream << "And &"; break;
-        case TK_OR: stream << "Or |"; break;
-        case TK_LAND: stream << "Logical and &&"; break;
-        case TK_LOR: stream << "Logical or ||"; break;
-        case TK_IF: stream << "If"; break;
-        case TK_ELSE: stream << "Else"; break;
         case TK_QUESTION: stream << "Question ?"; break;
         case TK_COLON: stream << "Colon :"; break;
-        case TK_FOR: stream << "For"; break;
-        case TK_WHILE: stream << "While"; break;
-        case TK_DO: stream << "Do"; break;
-        case TK_CONTINUE: stream << "Continue"; break;
-        case TK_BREAK: stream << "Break"; break;
-        case TK_VOID: stream << "Void"; break;
-        case TK_TRUE: stream << "True"; break;
-        case TK_FALSE: stream << "False"; break;
-        case TK_BOOL: stream << "Bool"; break;
         case TK_LBRACKET: stream << "LBracket '['"; break;
         case TK_RBRACKET: stream << "RBracket ']'"; break;
+        case TK_DATABASE: stream << "Database"; break;
+        case TK_DATABASES: stream << "Databases"; break;
+        case TK_TABLE: stream << "Table"; break;
+        case TK_SHOW: stream << "Show"; break;
+        case TK_CREATE: stream << "Create"; break;
+        case TK_DROP: stream << "Drop"; break;
+        case TK_USE: stream << "Use"; break;
+        case TK_PRIMARY: stream << "Primary"; break;
+        case TK_KEY: stream << "Key"; break;
+        case TK_NOT: stream << "Not"; break;
+        case TK_NULL: stream << "Null"; break;
+        case TK_INSERT: stream << "Insert"; break;
+        case TK_INTO: stream << "Into"; break;
+        case TK_VALUES: stream << "Values"; break;
+        case TK_DELETE: stream << "Delete"; break;
+        case TK_FROM: stream << "From"; break;
+        case TK_WHERE: stream << "Where"; break;
+        case TK_UPDATE: stream << "Update"; break;
+        case TK_SET: stream << "Set"; break;
+        case TK_SELECT: stream << "Select"; break;
+        case TK_IS: stream << "Is"; break;
+        case TK_INT: stream << "Int"; break;
+        case TK_VARCHAR: stream << "Varchar"; break;
+        case TK_DEFAULT: stream << "Default"; break;
+        case TK_CONSTRAINT: stream << "Constraint"; break;
+        case TK_CHANGE: stream << "Change"; break;
+        case TK_ALTER: stream << "Alter"; break;
+        case TK_ADD: stream << "Add"; break;
+        case TK_RENAME: stream << "Rename"; break;
+        case TK_DESC: stream << "Desc"; break;
+        case TK_INDEX: stream << "Index"; break;
+        case TK_AND: stream << "And"; break;
+        case TK_DATE: stream << "Date"; break;
+        case TK_FLOAT: stream << "Float"; break;
+        case TK_FOREIGN: stream << "Foreign"; break;
+        case TK_REFERENCES: stream << "References"; break;
         default: stream << "Unknown token type"; break;
     }
     stream << "]";
@@ -156,9 +170,6 @@ void KontoLexer::reset(){
     currentPtr = root;
     currentIdentifier = "";
     currentValue = 0;
-    isValueChar = false;
-    isValueCharEscape = false;
-    isValueHex = false;
     currentLength = 0;
 }
 
@@ -213,14 +224,6 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
                 currentToken = Token(TK_LSLASH); return TR_FINISHED; break;
             case '%':
                 currentToken = Token(TK_PERCENT); return TR_FINISHED; break;
-            case '|':
-                if (peek=='|') {currentToken = Token(TK_LOR); return TR_PEEKUSED_FINISHED;}
-                else {currentToken = Token(TK_OR); return TR_FINISHED;}
-                break;
-            case '&':
-                if (peek=='&') {currentToken = Token(TK_LAND); return TR_PEEKUSED_FINISHED;}
-                else {currentToken = Token(TK_AND); return TR_FINISHED;}
-                break;
             case '?':
                 currentToken = Token(TK_QUESTION); return TR_FINISHED; break;
             case ':':
@@ -241,8 +244,8 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
             } else {
                 flagKeyword = false;
             }
-        } else if (isLowercase(c)) {
-            currentPtr = currentPtr->transfer(c);
+        } else if (isLowercase(c) || isLowercase(c-'A'+'a')) {
+            currentPtr = currentPtr->transfer(c >= 'a' ? c : (c-'A'+'a'));
             if (currentPtr == nullptr) flagKeyword = false; 
         } else {
             flagKeyword = false;
@@ -260,79 +263,27 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
     }
     if (flagValue) {
         if (currentLength == 0) {
-            if (!isNumber(c) && c!='\'') {flagValue = false;}
-            else if (c=='0' && peek == 'x') {
-                isValueHex = true; return TR_PEEKUSED_CONTINUE;
-            } else if (c=='\'' && peek=='\\') {
-                isValueCharEscape = isValueChar = true;
-                return TR_PEEKUSED_CONTINUE;
-            } else if (c=='\'') {
-                isValueChar = true;
-            } else {
-                currentValue = c-48;
+            if (!isNumber(c) && c!='\"' && c!='.') {flagValue = false;}
+            else {
+                isFloat = false; isString = false;
+                if (isNumber(c)) {currentValue = c-48; return TR_CONTINUE;}
+                else if (c=='\"') {isString = true, currentIdentifier = ""; return TR_CONTINUE;}
+                else {
+                    isFloat = true, currentDecimal = true, currentFloatValue = 0, currentFloatUnit = 0.1;
+                    return TR_CONTINUE;
+                }
             }
         } else {
-            if (!isValueChar) { // 1234, 0x1234
-                if (!isValueHex) { 
-                    if (isSpace(c) || isSymbol(c)) {currentToken = Token(TK_INT_VALUE, currentValue); return TR_PUTBACK;}
-                    else if (c=='f') {appendErrorInfo("Value Error: Float value unsupported."); return TR_ERROR;}
-                    else if (c=='.') {appendErrorInfo("Value Error: Float value unsupported."); return TR_ERROR;}
-                    else if (!isNumber(c)) {appendErrorInfo("Value Error: Illegal decimal integer value."); return TR_ERROR;}
-                    long long intermediate = (long long)currentValue * 10 + c - 48; 
-                    if (intermediate > MAX_INT) {
-                        appendErrorInfo("Value Error: Too large an integer.");
-                        return TR_ERROR;
-                    } else currentValue = intermediate;
-                } else { 
-                    if (isSpace(c) || isSymbol(c)) {currentToken = Token(TK_INT_VALUE, currentValue); return TR_PUTBACK;}
-                    else if (!isNumber(c) && !(c>='A' && c<='F') && (!c>='a'  && c<='f')) {appendErrorInfo("Value: Illegal hexadecimal value."); return TR_ERROR;}
-                    long long intermediate = (long long)currentValue * 16 + ((c<='9') ? (c-48) : ((c<='F') ? (c-'A'+10) : (c-'a'+10))); 
-                    if (intermediate > MAX_INT) {
-                        appendErrorInfo("Value Error: Too large an integer.");
-                        return TR_ERROR;
-                    } else currentValue = intermediate;
-                }
-            } else { // 'c', '\n', '\123', '\x123456'
-                if (currentLength == 1) {
-                    if (peek == '\'') {currentToken = Token(TK_CHAR_VALUE, c); return TR_PEEKUSED_FINISHED;}
-                    else {appendErrorInfo("Value Error: Illegal char value, too long."); return TR_ERROR;}
-                } else if (currentLength == 2 && isValueCharEscape) { 
-                    switch (c) {
-                        case 'a' : currentValue = '\a'; break;
-                        case 'b' : currentValue = '\b'; break;
-                        case 'f' : currentValue = '\f'; break;
-                        case 'n' : currentValue = '\n'; break;
-                        case 'r' : currentValue = '\r'; break;
-                        case 't' : currentValue = '\t'; break;
-                        case 'v' : currentValue = '\v'; break;
-                        case '\\' : currentValue = '\\'; break;
-                        case '\'' : currentValue = '\''; break;
-                        case '\"' : currentValue = '\"'; break;
-                        case '\?' : currentValue = '\?'; break;
-                        case 'x' : isValueHex = true; return TR_CONTINUE; break; 
-                        case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7':
-                            currentValue = c - 48; break;
-                        default:
-                            appendErrorInfo("Value Error: Illegan escape char."); return TR_ERROR; break;
-                    }
-                } else if (currentLength == 2 && !isValueCharEscape) {
-                    if (c!='\'') {appendErrorInfo("Value Error: Illegal char value, too long."); return TR_ERROR;}
-                    else {currentToken = Token(TK_CHAR_VALUE, currentValue); return TR_FINISHED;}
-                } else if (currentLength > 2) {
-                    if (!isValueCharEscape) {appendErrorInfo("Value Error: Illegal char value, too long."); return TR_ERROR;}
-                    else if (c=='\'') {
-                        if (currentLength == 3) {currentToken = Token(TK_CHAR_VALUE, currentValue); return TR_FINISHED;}
-                        else if (isValueHex) {currentToken = Token(TK_CHAR_VALUE, currentValue); return TR_FINISHED;}
-                        else if (currentLength != 5) {appendErrorInfo("Value Error: Illegal octal char value."); return TR_ERROR;}
-                        else {currentToken = Token(TK_CHAR_VALUE, currentValue); return TR_FINISHED;}
-                    } else if (isValueHex) {
-                        if (!isNumber(c) && !(c>='A' && c<='F') && (!c>='a'  && c<='f')) {appendErrorInfo("Value: Illegal hexadecimal char value."); return TR_ERROR;}
-                        currentValue = currentValue * 16 + ((c<='9') ? (c-48) : ((c<='F') ? (c-'A'+10) : (c-'a'+10))); 
-                    } else {
-                        if (c<'0' || c>'7') {appendErrorInfo("Value: Illegal octal char value."); return TR_ERROR;}
-                        currentValue = currentValue * 8 + c - 48;
-                    }
-                }
+            if (isString) {
+                if (c=='\"') {currentToken = Token(TK_STRING_VALUE, currentIdentifier); return TR_FINISHED;}
+                else {currentIdentifier += c; return TR_CONTINUE;}
+            } else if (isFloat) {
+                if (isNumber(c)) {currentFloatValue += currentFloatUnit * (c-48), currentFloatUnit /= 10; return TR_CONTINUE;}
+                else {currentToken = Token(TK_FLOAT_VALUE, currentFloatValue); return TR_PUTBACK;}
+            } else {
+                if (isNumber(c)) {currentValue = currentValue * 10 + c - 48; return TR_CONTINUE;}
+                else if (c=='.') {isFloat = true; currentDecimal = true; currentFloatValue = currentValue; currentFloatUnit = 0.1; return TR_CONTINUE;}
+                else {currentToken = Token(TK_INT_VALUE, currentValue); return TR_PUTBACK;}
             }
         }
     }
@@ -397,21 +348,42 @@ void KontoLexer::addKeyword(const char* keyword, TokenKind tk) {
 }
 
 void KontoLexer::addDefaultKeywords(){
-    // please add keywords by alphabetical order
-    addKeyword("bool", TK_BOOL);
-    addKeyword("break", TK_BREAK);
-    addKeyword("char", TK_CHAR);
-    addKeyword("continue", TK_CONTINUE);
-    addKeyword("do", TK_DO);
-    addKeyword("else", TK_ELSE);
-    addKeyword("false", TK_FALSE);
-    addKeyword("for", TK_FOR);
-    addKeyword("if", TK_IF);
+    addKeyword("database", TK_DATABASE);
+    addKeyword("databases", TK_DATABASE);
+    addKeyword("table", TK_DATABASE);
+    addKeyword("show", TK_DATABASE);
+    addKeyword("create", TK_CREATE);
+    addKeyword("drop", TK_DROP);
+    addKeyword("use", TK_USE);
+    addKeyword("primary", TK_PRIMARY);
+    addKeyword("key", TK_KEY);
+    addKeyword("not", TK_NOT);
+    addKeyword("null", TK_NULL);
+    addKeyword("insert", TK_INSERT);
+    addKeyword("into", TK_INTO);
+    addKeyword("values", TK_VALUES);
+    addKeyword("delete", TK_DELETE);
+    addKeyword("from", TK_FROM);
+    addKeyword("where", TK_WHERE);
+    addKeyword("update", TK_UPDATE);
+    addKeyword("set", TK_SET);
+    addKeyword("select", TK_SELECT);
+    addKeyword("is", TK_IS);
     addKeyword("int", TK_INT);
-    addKeyword("return", TK_RETURN);
-    addKeyword("true", TK_TRUE);
-    addKeyword("void", TK_VOID);
-    addKeyword("while", TK_WHILE);
+    addKeyword("varchar", TK_VARCHAR);
+    addKeyword("default", TK_DEFAULT);
+    addKeyword("constraint", TK_CONSTRAINT);
+    addKeyword("change", TK_CHANGE);
+    addKeyword("alter", TK_ALTER);
+    addKeyword("add", TK_ADD);
+    addKeyword("rename", TK_RENAME);
+    addKeyword("desc", TK_DESC);
+    addKeyword("index", TK_INDEX);
+    addKeyword("and", TK_AND);
+    addKeyword("date", TK_DATE);
+    addKeyword("float", TK_FLOAT);
+    addKeyword("foreign", TK_FOREIGN);
+    addKeyword("references", TK_REFERENCES);
 }
 
 void KontoLexer::putback(Token token) {

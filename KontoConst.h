@@ -50,7 +50,8 @@ enum KontoResult {
     // ERROR ABOUT PRIMARY KEY  
     KR_PRIMARY_REDECLARATION    = 0x00000400,
     KR_PRIMARY_REPETITION       = 0x00000401,
-    KR_NO_PRIMARY               = 0x00000402
+    KR_NO_PRIMARY               = 0x00000402,
+    KR_NO_SUCH_FOREIGN          = 0x00000403
 };
 
 const KontoKeyType KT_INT        = 0x0;

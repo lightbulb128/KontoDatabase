@@ -13,9 +13,13 @@
     文件中已有的记录总数（不包括已删除的），
     每条记录的长度
     域的个数
+  * 2560开始，
     主键域的个数（若无主键置零）
     各个主键的编号
-  * 3072位开始为每页的信息：当前页中已有的记录数（包括已删除的）
+  * 3072开始，存储外键：
+    * 外键个数
+      * 每个外键的列数，以及对应哪些列，外键的名字
+  * 4096位开始为每页的信息：当前页中已有的记录数（包括已删除的）
 * 之后每页存储信息，按照每条记录长度存储
   * 每条记录，0为记录编号rid，1为控制位（二进制最低位表示是否已删除），之后开始为数据
 */
@@ -27,9 +31,10 @@ const uint POS_META_RECORDCOUNT  = 0x00000804;
 const uint POS_META_EXISTCOUNT   = 0x00000808;
 const uint POS_META_RECORDSIZE   = 0x0000080c;
 const uint POS_META_FIELDCOUNT   = 0x00000810;
-const uint POS_META_PRIMARYCOUNT = 0x00000814;
-const uint POS_META_PRIMARIES    = 0x00000818;
-const uint POS_PAGES             = 0x00000c00;
+const uint POS_META_PRIMARYCOUNT = 0x00000a00;
+const uint POS_META_PRIMARIES    = 0x00000a04;
+const uint POS_META_FOREIGNS     = 0x00000c00;
+const uint POS_PAGES             = 0x00001000;
 
 const uint FLAGS_DELETED         = 0x00000001;
 const uint FIELD_FLAGS_NULLABLE  = 0x00000001;
@@ -770,12 +775,7 @@ KontoResult KontoTableFile::alterChangeColumn(string original, const KontoCDef& 
     return KR_OK;
 }
 
-KontoResult KontoTableFile::alterRenameColumn(string old, string newname) {
-    removeIndices();
-    uint keyId; 
-    KontoResult res = getKeyIndex(old.c_str(), keyId);
-    if (res!=KR_OK) return KR_NO_SUCH_COLUMN;
-    keys[keyId].name = newname;
+void KontoTableFile::rewriteKeyDefinitions() {
     int bufindex;
     KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
     char* ptr = metapage + POS_FIELDS;
@@ -795,6 +795,15 @@ KontoResult KontoTableFile::alterRenameColumn(string old, string newname) {
         }
     }
     pmgr.markDirty(bufindex);
+}
+
+KontoResult KontoTableFile::alterRenameColumn(string old, string newname) {
+    removeIndices();
+    uint keyId; 
+    KontoResult res = getKeyIndex(old.c_str(), keyId);
+    if (res!=KR_OK) return KR_NO_SUCH_COLUMN;
+    keys[keyId].name = newname;
+    rewriteKeyDefinitions();
     recreatePrimaryIndex();
     return KR_OK;
 }
@@ -804,4 +813,49 @@ uint KontoTableFile::getIndexCount() {return indices.size();}
 KontoIndex* KontoTableFile::getPrimaryIndex() {
     if (hasPrimaryKey()) return primaryIndex;
     else return nullptr;
+}
+
+KontoResult KontoTableFile::alterAddForeignKey(string name, const vector<uint>& foreignKeys, string foreignTable, const vector<string>& foreignName) {
+    int bufindex;
+    KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
+    char* ptr = metapage + POS_META_FOREIGNS;
+    int n = VI(ptr); VIP(ptr) = n+1; 
+    char buffer[PAGE_SIZE];
+    while (n--) {int c = VIP(ptr); while (c--) VIP(ptr); CS(buffer, ptr);}
+    VIP(ptr) = foreignKeys.size(); 
+    for (int i=0;i<foreignKeys.size();i++) {
+        int p = foreignKeys[i];
+        VIP(ptr) = p;
+        keys[p].isForeign = true;
+        keys[p].foreignName = foreignName[i];
+        keys[p].foreignTable = foreignTable[i];
+    }
+    PS(ptr, name);
+    pmgr.markDirty(bufindex);
+    rewriteKeyDefinitions();
+}
+
+KontoResult KontoTableFile::alterDropForeignKey(string name) {
+    int bufindex;
+    KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
+    char* ptr = metapage + POS_META_FOREIGNS;
+    int n = VI(ptr); VIP(ptr) = n-1; 
+    char buffer[PAGE_SIZE];
+    char* target, *tail; bool flag = false;
+    while (n--) {
+        char* bef = ptr;
+        int c = VIP(ptr); 
+        while (c--) VIP(ptr); 
+        CS(buffer, ptr);
+        if (buffer == name) target = bef, tail = ptr, flag = true;
+    }
+    if (!flag) return KR_NO_SUCH_FOREIGN;
+    int c = VI(target);
+    for (int i=0;i<c;i++) {
+        int p = VI(target + 4 + i * 4);
+        keys[p].isForeign = false; keys[p].foreignName = "";
+        keys[p].foreignTable = ""; 
+    }
+    memmove(target, tail, ptr-tail);
+    pmgr.markDirty(bufindex);
 }

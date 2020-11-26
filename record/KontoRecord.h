@@ -188,8 +188,12 @@ public:
 
     KontoResult insertIndex(KontoRPos& pos, KontoIndex* dest);
 
+    void rewriteKeyDefinitions();
+
     KontoResult alterAddPrimaryKey(const vector<uint>& primaryKeys);
     KontoResult alterDropPrimaryKey();
+    KontoResult alterAddForeignKey(string name, const vector<uint>& foreignKeys, string foreignTable, const vector<string>& foreignName);
+    KontoResult alterDropForeignKey(string name);
     KontoResult alterAddColumn(const KontoCDef& def);
     KontoResult alterDropColumn(string name);
     KontoResult alterRenameColumn(string old, string newname);

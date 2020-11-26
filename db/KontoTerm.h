@@ -22,15 +22,18 @@ public:
     void useDatabase(string dbname);
     void dropDatabase(string dbname);
     void showDatabase(string dbname);
-    void createTable(string name, const vector<KontoCDef>& defs, const vector<uint>& primaryKeys);
+    void createTable(string name, const vector<KontoCDef>& defs);
     void dropTable(string name);
-    void alterAddPrimaryKey(string table, const vector<uint>& primaryKeys);
+    void showTable(string name);
+    void alterAddPrimaryKey(string table, const vector<string>& cols);
     void alterDropPrimaryKey(string table);
     void alterAddColumn(string table, const KontoCDef& def);
-    void alterDropColumn(string table, const KontoCDef& def);
+    void alterDropColumn(string table, string col);
     void alterChangeColumn(string table, string original, const KontoCDef& newdef);
-    void alterAddForeignKey(string table, const KontoCDef& def);
-    void alterDropForeignKey(string table, string name);
+    void alterAddForeignKey(string table, string fkname, 
+        const vector<string>& col, string foreignTable, 
+        const vector<string>& foreignNames);
+    void alterDropForeignKey(string table, string fkname);
     ProcessStatementResult err(string message);
     void main();
     ProcessStatementResult processStatement();
