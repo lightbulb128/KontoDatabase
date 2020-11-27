@@ -222,6 +222,10 @@ public:
 
     void drop();
 
+    KontoResult insert(char* record);
+
+    KontoResult dropIndex(const vector<uint>& cols);
+
     void debugtest();
 };
 

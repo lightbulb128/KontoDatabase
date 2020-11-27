@@ -436,10 +436,15 @@ KontoResult KontoTableFile::createIndex(const vector<KontoKeyIndex>& keyIndices,
         ksize.push_back(keys[key].size);
     }
     string indexFilename = KontoIndex::getIndexFilename(filename, opt);
+    for (auto& item : indices) {if (item->getFilename() == indexFilename) return KR_INDEX_ALREADY_EXISTS;}
     KontoIndex* ptr;
     KontoResult result = KontoIndex::createIndex(
         indexFilename, &ptr, ktype, kpos, ksize);
     indices.push_back(ptr);
+    KontoQRes q;
+    allEntries(q);
+    for (auto item : q.items) 
+        insertIndex(item, ptr);
     if (handle) *handle = ptr;
     return result;
 }
@@ -663,10 +668,6 @@ void KontoTableFile::recreatePrimaryIndex() {
         }
     }
     res = createIndex(primaryKeys, &primaryIndex);
-    KontoQRes q;
-    allEntries(q);
-    for (auto item : q.items) 
-        insertIndex(item, primaryIndex);
 }
 
 KontoResult KontoTableFile::alterAddColumn(const KontoCDef& def) {
@@ -910,4 +911,28 @@ void KontoTableFile::drop() {
     for (auto& i : indices) {
         remove_file(get_filename(i->getFilename()));
     }
+}
+
+KontoResult KontoTableFile::insert(char* record) {
+    KontoRPos pos; 
+    insertEntry(record, &pos);
+    insertIndex(pos);
+    return KR_OK;
+}
+
+KontoResult KontoTableFile::dropIndex(const vector<uint>& cols) {
+    vector<string> opt = vector<string>();
+    for (auto key: cols)
+        opt.push_back(keys[key].name);
+    string indexFilename = KontoIndex::getIndexFilename(filename, opt);
+    KontoIndex* ptr = nullptr;
+    for (int i=0;i<indices.size();i++) {
+        if (indices[i]->getFilename() == indexFilename) {
+            ptr = indices[i];
+            indices.erase(indices.begin() + i); 
+            break;
+        }
+    }
+    if (ptr==nullptr) return KR_NOT_FOUND;
+    ptr->drop(); return KR_OK;
 }

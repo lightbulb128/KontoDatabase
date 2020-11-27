@@ -43,6 +43,7 @@ enum KontoResult {
     KR_EMPTY_KEYLIST            = 0x00000200,
     KR_NOT_FOUND                = 0x00000201,
     KR_LAST_IPOS                = 0x00000202,
+    KR_INDEX_ALREADY_EXISTS     = 0x00000203,
     // ERROR IN KONTODBMGR
     KR_NOT_USING_DATABASE       = 0x00000300,
     KR_NO_SUCH_DATABASE         = 0x00000301,

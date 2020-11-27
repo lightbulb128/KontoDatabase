@@ -6,6 +6,7 @@
 #include "KontoLexer.h"
 
 const string TABLES_FILE = "__tables.txt";
+const string INDICES_FILE = "__indices.txt";
 
 enum ProcessStatementResult {
     PSR_OK, 
@@ -13,10 +14,17 @@ enum ProcessStatementResult {
     PSR_QUIT
 };
 
+struct KontoIndexDesc {
+    string name;
+    string table;
+    vector<uint> cols;
+};
+
 class KontoTerminal {
 private:
     string currentDatabase;
     vector<string> tables;
+    vector<KontoIndexDesc> indices;
 public:
     KontoLexer lexer;
     KontoTerminal();
@@ -38,9 +46,16 @@ public:
         const vector<string>& col, string foreignTable, 
         const vector<string>& foreignNames);
     void alterDropForeignKey(string table, string fkname);
+    void loadIndices();
+    void saveIndices();
+    void dropTableIndices(string tb);
+    void createIndex(string idname, string table, const vector<string>& cols);
+    void dropIndex(string idname);
+
     ProcessStatementResult err(string message);
     void main();
     ProcessStatementResult processStatement();
+    ProcessStatementResult processInsert(string tbname);
 };
 
 #endif

@@ -1,4 +1,5 @@
 #include "KontoTerm.h"
+#include <fstream>
 
 using std::to_string;
 
@@ -47,7 +48,7 @@ string value_to_string(char* value, KontoKeyType type) {
 } 
 
 ProcessStatementResult KontoTerminal::err(string message) {
-    cout << message << endl;
+    cout << TABS[1] << message << endl;
     return PSR_ERR;
 }
 
@@ -61,7 +62,7 @@ ProcessStatementResult KontoTerminal::processStatement() {
             ASSERTERR(cur, TK_TABLE, "alter: Expect keyword TABLE.");
             cur = lexer.nextToken();
             ASSERTERR(cur, TK_IDENTIFIER, "alter table: Expect identifier.");
-            string name = cur.identifier;
+            string table = cur.identifier;
             cur = lexer.nextToken();
             if (cur.tokenKind == TK_ADD) {
                 cur = lexer.nextToken();
@@ -82,7 +83,7 @@ ProcessStatementResult KontoTerminal::processStatement() {
                     }
                     cur = lexer.nextToken();
                     ASSERTERR(cur, TK_RPAREN, "create table - primary: Expect RParen.");
-                    alterAddPrimaryKey(name, primaries);
+                    alterAddPrimaryKey(table, primaries);
                     return PSR_OK;
                 } else if (cur.tokenKind == TK_CONSTRAINT) {
                     cur = lexer.nextToken();
@@ -127,7 +128,27 @@ ProcessStatementResult KontoTerminal::processStatement() {
                         else return err("alter table add constraint - references: Expect comma or rparen.");
                     }
                     if (ncnt!=cnt) return err("alter table add constraint - foreign: Reference count does not match.");
-                    alterAddForeignKey(name, fkname, foreigns, foreignTable, foreignName);
+                    alterAddForeignKey(table, fkname, foreigns, foreignTable, foreignName);
+                    return PSR_OK;
+                } else if (cur.tokenKind == TK_INDEX) {
+                    cur = lexer.nextToken(); 
+                    ASSERTERR(cur, TK_IDENTIFIER, "alter table add index : Expect identifier");
+                    string idname = cur.identifier;
+                    cur = lexer.nextToken();
+                    ASSERTERR(cur, TK_LPAREN, "alter table add index: Expect LParen."); 
+                    vector<string> cols; cols.clear();
+                    while (true) {
+                        cur = lexer.nextToken();
+                        ASSERTERR(cur, TK_IDENTIFIER, "alter table add index: Expect identifier.");
+                        cols.push_back(cur.identifier);
+                        cur = lexer.peek(); 
+                        if (cur.tokenKind == TK_COMMA) lexer.nextToken();
+                        else if (cur.tokenKind == TK_RPAREN) break;
+                        else return err("alter table add index: Expect comma or rparen.");
+                    }
+                    cur = lexer.nextToken();
+                    ASSERTERR(cur, TK_RPAREN, "alter table add index: Expect RParen.");
+                    createIndex(idname, table, cols);
                     return PSR_OK;
                 } else if (cur.tokenKind == TK_IDENTIFIER) {
                     KontoCDef def("", TK_INT, 4); def.name = cur.identifier;
@@ -175,27 +196,32 @@ ProcessStatementResult KontoTerminal::processStatement() {
                             strcpy(def.defaultValue, cur.identifier.c_str());
                         }
                     }
-                    alterAddColumn(name, def);
+                    alterAddColumn(table, def);
                     return PSR_OK;
                 } else {
-                    return err("alter table add: Expect PRIMARY or CONSTRAINT or identifier.");
+                    return err("alter table add: Expect PRIMARY or CONSTRAINT or INDEX or identifier.");
                 }
             } else if (cur.tokenKind == TK_DROP) {
                 cur = lexer.nextToken();
                 if (cur.tokenKind == TK_PRIMARY) {
                     cur = lexer.nextToken();
                     ASSERTERR(cur, TK_KEY, "alter table drop primary: Expect keyword key.");
-                    alterDropPrimaryKey(name);
+                    alterDropPrimaryKey(table);
                     return PSR_OK;
                 } else if (cur.tokenKind == TK_FOREIGN) {
                     cur = lexer.nextToken();
                     ASSERTERR(cur, TK_KEY, "alter table drop foreign: Expect keyword key.");
                     cur = lexer.nextToken();
                     ASSERTERR(cur, TK_IDENTIFIER, "alter table drop foreign: Expect identifier.");
-                    alterDropForeignKey(name, cur.identifier);
+                    alterDropForeignKey(table, cur.identifier);
                     return PSR_OK;
+                } else if (cur.tokenKind = TK_INDEX) {
+                    cur = lexer.nextToken();
+                    ASSERTERR(cur, TK_IDENTIFIER, "alter table drop index: Expect identifier.");
+                    string idname = cur.identifier;
+                    dropIndex(idname);
                 } else if (cur.tokenKind == TK_IDENTIFIER) {
-                    alterDropColumn(name, cur.identifier);
+                    alterDropColumn(table, cur.identifier);
                     return PSR_OK;
                 } else {
                     return err("alter table drop: Expect PRIMARY or FOREIGN or identifier.");
@@ -251,7 +277,7 @@ ProcessStatementResult KontoTerminal::processStatement() {
                         strcpy(def.defaultValue, cur.identifier.c_str());
                     }
                 }
-                alterChangeColumn(name, old, def);
+                alterChangeColumn(table, old, def);
                 return PSR_OK;
             } else {
                 return err("alter table: Expect keyword ADD, DROP or CHANGE.");
@@ -415,6 +441,17 @@ ProcessStatementResult KontoTerminal::processStatement() {
             } else {
                 return err("drop: Expect keyword DATABASE or TABLE.");
             }
+        }
+
+        case TK_INSERT: {
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_INTO, "insert: Expect keyword INTO.");
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_IDENTIFIER, "insert: Expect identifier.");
+            string tbname = cur.identifier;
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_VALUES, "insert: Expect keyword VALUES.");
+            return processInsert(tbname);
         }
 
         case TK_QUIT: {
@@ -695,4 +732,123 @@ void KontoTerminal::alterDropForeignKey(string table, string fkname) {
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
     handle->alterDropForeignKey(fkname);
     handle->close();
+}
+
+ProcessStatementResult KontoTerminal::processInsert(string tbname) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return PSR_ERR;}
+    if (!hasTable(tbname)) return err("Error: No such table!");
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + tbname, &handle);
+    char* buffer = new char[handle->getRecordSize()];
+    while (true) {
+        Token cur = lexer.nextToken();
+        ASSERTERR(cur, TK_LPAREN, "insert values: Expect Lparen.");
+        int n = handle->keys.size();
+        for (int i=0;i<n;i++) {
+            Token cur = lexer.nextToken();
+            const auto& key = handle->keys[i];
+            switch (key.type) {
+                case KT_INT:
+                    ASSERTERR(cur, TK_INT_VALUE, "insert - type error: Expect int value.");
+                    handle->setEntryInt(buffer, i, cur.value);
+                    break;
+                case KT_FLOAT:
+                    ASSERTERR(cur, TK_FLOAT_VALUE, "insert - type error: Expect float value.");
+                    handle->setEntryFloat(buffer, i, cur.doubleValue);
+                    break;
+                case KT_STRING:
+                    ASSERTERR(cur, TK_STRING_VALUE, "insert - type error: Expect string value.");
+                    if (cur.identifier.length() > key.size - 1) return err("insert - value error: String too long.");
+                    handle->setEntryString(buffer, i, cur.identifier.c_str());
+                    break;
+                default:
+                    return err("insert - table type error: Unidentified type.");
+            }
+            if (i!=n-1) {
+                cur=lexer.nextToken();
+                ASSERTERR(cur, TK_COMMA, "insert value: Expect comma.");
+            }
+        }
+        Token cur = lexer.nextToken();
+        ASSERTERR(cur, TK_RPAREN, "insert values: Expect Rparen.");
+        handle->insert(buffer);
+        if (lexer.peek().tokenKind == TK_SEMICOLON) break;
+        Token cur = lexer.nextToken();
+        ASSERTERR(cur, TK_COMMA, "insert values: Expect comma.");
+    }
+    delete[] buffer;
+    handle->close();
+}
+
+void KontoTerminal::loadIndices() {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    indices.clear();
+    if (!file_exist(currentDatabase, INDICES_FILE)) return;
+    std::ifstream fin(get_filename(currentDatabase + "/" + INDICES_FILE));
+    while (!fin.eof()) {
+        KontoIndexDesc desc;
+        fin >> desc.name; fin >> desc.table;
+        int n; fin >> n;
+        desc.cols.clear();
+        while (n--) {int p; fin>>p; desc.cols.push_back(p);}
+        indices.push_back(desc);
+    }
+    fin.close();
+}
+
+void KontoTerminal::saveIndices() {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    std::ofstream fout(get_filename(currentDatabase + "/" + INDICES_FILE));
+    for (auto& item: indices) {
+        fout << item.name << " " << item.table << " " << item.cols.size() << endl;
+        for (auto& p: item.cols) fout << p << " "; 
+        fout << endl;
+    }
+    fout.close();
+}
+
+void KontoTerminal::dropTableIndices(string tb) {
+    int n = indices.size();
+    for (int i=n;i>=0;i--) if (indices[i].table == tb) indices.erase(indices.begin() + i);
+}
+
+void KontoTerminal::createIndex(string idname, string table, const vector<string>& cols) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(table)) {PT(1,"Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    vector<uint> colids; colids.clear();
+    for (auto& item: cols) {
+        uint p;
+        KontoResult res = handle->getKeyIndex(item.c_str(), p);
+        if (res!=KR_OK) {PT(1, "Error: No such column called " + item); return;}
+        colids.push_back(p);
+    }
+    if (handle->createIndex(colids, nullptr)!=KR_OK) {
+        PT(1, "Error: Create index failed.");
+        return;
+    };
+    KontoIndexDesc desc{
+        .name = idname,
+        .table = table,
+        .cols = colids
+    }; 
+    indices.push_back(desc);
+    saveIndices();
+    handle->close();
+}
+
+void KontoTerminal::dropIndex(string idname) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    string table;
+    int n = indices.size();
+    KontoIndexDesc* ptr = nullptr; int position;
+    for (int i=0; i<n; i++) if (indices[i].name == idname) {ptr = &indices[i]; position = i; break;}
+    if (ptr==nullptr) {PT(1, "Error: No such index!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + ptr->table, &handle);
+    handle->dropIndex(ptr->cols);
+    handle->close();
+    indices.erase(indices.begin() + position);
+    saveIndices();
 }
