@@ -1,6 +1,50 @@
 #include "KontoTerm.h"
 
+using std::to_string;
+
 #define ASSERTERR(token, type, message) if (token.tokenKind != type) return err(message)
+
+string TABS[5] = {"", "    ", "        ", "            ", "                "};
+string SPACES = "                                                          ";
+
+// PRINT WITH TABS
+void PT(int tabs, const string& prom) {
+    cout << TABS[tabs] << prom << endl;
+}
+
+// SPACE PADDING
+string SS(int t, const string& s, bool right = false) {
+    int l = s.length();
+    if (l > t) return s.substr(0, t - 3) + "...";
+    return (!right) ? (s + SPACES.substr(0, t-l)) : (SPACES.substr(0, t-l) + s);
+}
+
+string bool_to_string(bool b){
+    return b ? "Yes" : "No";
+}
+
+string type_to_string(KontoKeyType type, int size) {
+    switch (type) {
+        case KT_INT: return "INT";
+        case KT_FLOAT: return "FLOAT";
+        case KT_STRING: return "VCHAR(" + to_string(size - 1) + ")";
+        default: return "UNKNOWN";
+    }
+}
+
+string value_to_string(char* value, KontoKeyType type) {
+    if (value == nullptr) return "";
+    switch (type) {
+        case KT_INT: 
+            if (*(int*)value == DEFAULT_INT_VALUE) return "NULL";
+            return to_string(*(int*)value);
+        case KT_FLOAT: 
+            if (*(double*)value == DEFAULT_FLOAT_VALUE) return "NULL";
+            return to_string(*(double*)value);
+        case KT_STRING: return string(value);
+        default: return "BAD";
+    }
+} 
 
 ProcessStatementResult KontoTerminal::err(string message) {
     cout << message << endl;
@@ -8,12 +52,14 @@ ProcessStatementResult KontoTerminal::err(string message) {
 }
 
 ProcessStatementResult KontoTerminal::processStatement() {
-    Token cur = lexer.nextToken(), peek = lexer.peek();
+    Token cur = lexer.nextToken(), peek;
+    while (cur.tokenKind == TK_SEMICOLON) cur = lexer.nextToken();
     switch (cur.tokenKind) {
 
         case TK_ALTER: {
-            ASSERTERR(peek, TK_TABLE, "alter: Expect keyword TABLE.");
-            lexer.nextToken(); cur = lexer.nextToken();
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_TABLE, "alter: Expect keyword TABLE.");
+            cur = lexer.nextToken();
             ASSERTERR(cur, TK_IDENTIFIER, "alter table: Expect identifier.");
             string name = cur.identifier;
             cur = lexer.nextToken();
@@ -85,20 +131,26 @@ ProcessStatementResult KontoTerminal::processStatement() {
                     return PSR_OK;
                 } else if (cur.tokenKind == TK_IDENTIFIER) {
                     KontoCDef def("", TK_INT, 4); def.name = cur.identifier;
-                    cur = lexer.nextToken(); cur = lexer.nextToken();
+                    cur = lexer.nextToken();
                     if (cur.tokenKind == TK_INT) {
                         def.type = KT_INT; def.size = 4;
                         cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table add col - int: Expect LParen.");
                         cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table add col - int: Expect int value.");
                         cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table add col - int: Expect RParen.");
+                        def.defaultValue = new char[4];
+                        *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
                     } else if (cur.tokenKind == TK_FLOAT) {
-                        def.type = KT_FLOAT;
+                        def.type = KT_FLOAT; def.size = 8;
+                        def.defaultValue = new char[8];
+                        *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
                     } else if (cur.tokenKind == TK_VARCHAR) {
-                        def.type = KT_STRING; def.size = 8;
+                        def.type = KT_STRING; 
                         cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table add col - varchar: Expect LParen.");
                         cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table add col - varchar: Expect int value.");
                         def.size = cur.value + 1;
                         cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table add col - varchar: Expect RParen.");
+                        def.defaultValue = new char[def.size];
+                        memset(def.defaultValue, 0, def.size);
                     }
                     peek = lexer.peek();
                     if (peek.tokenKind == TK_NOT) {
@@ -153,21 +205,28 @@ ProcessStatementResult KontoTerminal::processStatement() {
                 ASSERTERR(cur, TK_IDENTIFIER, "alter table change: Expect identifier");
                 string old = cur.identifier;
                 cur = lexer.nextToken();
+                ASSERTERR(cur, TK_IDENTIFIER, "alter table change: Expect identifier");
                 KontoCDef def("", TK_INT, 4); def.name = cur.identifier;
-                cur = lexer.nextToken(); cur = lexer.nextToken();
+                cur = lexer.nextToken();
                 if (cur.tokenKind == TK_INT) {
                     def.type = KT_INT; def.size = 4;
                     cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table change - int: Expect LParen.");
                     cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table change - int: Expect int value.");
                     cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table change - int: Expect RParen.");
+                    def.defaultValue = new char[4];
+                    *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
                 } else if (cur.tokenKind == TK_FLOAT) {
-                    def.type = KT_FLOAT;
+                    def.type = KT_FLOAT; def.size = 8;
+                    def.defaultValue = new char[8];
+                    *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
                 } else if (cur.tokenKind == TK_VARCHAR) {
-                    def.type = KT_STRING; def.size = 8;
+                    def.type = KT_STRING; 
                     cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table change - varchar: Expect LParen.");
                     cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table change - varchar: Expect int value.");
                     def.size = cur.value + 1;
                     cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table change - varchar: Expect RParen.");
+                    def.defaultValue = new char[def.size];
+                    memset(def.defaultValue, 0, def.size);
                 }
                 peek = lexer.peek();
                 if (peek.tokenKind == TK_NOT) {
@@ -200,14 +259,15 @@ ProcessStatementResult KontoTerminal::processStatement() {
         }
 
         case TK_CREATE: {
+            Token peek = lexer.peek();
             if (peek.tokenKind == TK_DATABASE) {
-                lexer.nextToken(); peek = lexer.nextToken();
-                ASSERTERR(peek, TK_IDENTIFIER, "create database: Expect identifier.");
-                createDatabase(peek.identifier);
+                lexer.nextToken(); cur = lexer.nextToken();
+                ASSERTERR(cur, TK_IDENTIFIER, "create database: Expect identifier.");
+                createDatabase(cur.identifier);
                 return PSR_OK;
             } else if (peek.tokenKind == TK_TABLE) {
                 lexer.nextToken(); cur = lexer.nextToken();
-                ASSERTERR(peek, TK_IDENTIFIER, "create table: Expect identifier.");
+                ASSERTERR(cur, TK_IDENTIFIER, "create table: Expect identifier.");
                 string name = cur.identifier;
                 cur = lexer.nextToken(); 
                 ASSERTERR(cur, TK_LPAREN, "create table: Expect LParen.");
@@ -223,20 +283,26 @@ ProcessStatementResult KontoTerminal::processStatement() {
                     if (peek.tokenKind == TK_IDENTIFIER) {
                         lexer.nextToken(); 
                         KontoCDef def("", TK_INT, 4); def.name = peek.identifier;
-                        cur = lexer.nextToken(); cur = lexer.nextToken();
+                        cur = lexer.nextToken();
                         if (cur.tokenKind == TK_INT) {
                             def.type = KT_INT; def.size = 4;
                             cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - int: Expect LParen.");
                             cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - int: Expect int value.");
                             cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - int: Expect RParen.");
+                            def.defaultValue = new char[4];
+                            *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
                         } else if (cur.tokenKind == TK_FLOAT) {
-                            def.type = KT_FLOAT;
+                            def.type = KT_FLOAT; def.size = 8;
+                            def.defaultValue = new char[8];
+                            *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
                         } else if (cur.tokenKind == TK_VARCHAR) {
-                            def.type = KT_STRING; def.size = 8;
+                            def.type = KT_STRING; 
                             cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - varchar: Expect LParen.");
                             cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - varchar: Expect int value.");
                             def.size = cur.value + 1;
                             cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - varchar: Expect RParen.");
+                            def.defaultValue = new char[def.size];
+                            memset(def.defaultValue, 0, def.size);
                         }
                         peek = lexer.peek();
                         if (peek.tokenKind == TK_NOT) {
@@ -335,42 +401,54 @@ ProcessStatementResult KontoTerminal::processStatement() {
         }
 
         case TK_DROP: {
+            Token peek = lexer.peek();
             if (peek.tokenKind == TK_DATABASE) {
-                lexer.nextToken(); peek = lexer.nextToken();
-                ASSERTERR(peek, TK_IDENTIFIER, "drop database: Expect identifier");
-                dropDatabase(peek.identifier);
+                lexer.nextToken(); cur = lexer.nextToken();
+                ASSERTERR(cur, TK_IDENTIFIER, "drop database: Expect identifier");
+                dropDatabase(cur.identifier);
                 return PSR_OK;
             } else if (peek.tokenKind == TK_TABLE) {
-                lexer.nextToken(); peek = lexer.nextToken();
-                ASSERTERR(peek, TK_IDENTIFIER, "drop table: Expect identifier");
-                dropTable(peek.identifier);
+                lexer.nextToken(); cur = lexer.nextToken();
+                ASSERTERR(cur, TK_IDENTIFIER, "drop table: Expect identifier");
+                dropTable(cur.identifier);
                 return PSR_OK;
             } else {
                 return err("drop: Expect keyword DATABASE or TABLE.");
             }
         }
 
+        case TK_QUIT: {
+            Token peek = lexer.peek();
+            return PSR_QUIT;
+        }
+
         case TK_SHOW: {
+            Token peek = lexer.peek();
             if (peek.tokenKind == TK_DATABASE) {
-                lexer.nextToken(); peek = lexer.nextToken();
-                ASSERTERR(peek, TK_IDENTIFIER, "show database: Expect identifier");
-                showDatabase(peek.identifier);
+                lexer.nextToken(); cur = lexer.nextToken();
+                ASSERTERR(cur, TK_IDENTIFIER, "show database: Expect identifier");
+                showDatabase(cur.identifier);
+                return PSR_OK;
+            } else if (peek.tokenKind == TK_DATABASES) {
+                lexer.nextToken(); 
+                showDatabases();
                 return PSR_OK;
             } else if (peek.tokenKind == TK_TABLE) {
-                lexer.nextToken(); peek = lexer.nextToken();
-                ASSERTERR(peek, TK_IDENTIFIER, "show table: Expect identifier");
-                showTable(peek.identifier);
+                lexer.nextToken(); cur = lexer.nextToken();
+                ASSERTERR(cur, TK_IDENTIFIER, "show table: Expect identifier");
+                showTable(cur.identifier);
                 return PSR_OK;
             } else {
-                return err("show: Expect keyword DATABASE or TABLE.");
+                return err("show: Expect keyword DATABASE, DATABASES or TABLE.");
             }
         }
 
         case TK_USE: {
+            Token peek = lexer.peek();
             if (peek.tokenKind == TK_DATABASE) {
-                lexer.nextToken(); peek = lexer.nextToken();
-                ASSERTERR(peek, TK_IDENTIFIER, "use database: Expect identifier");
-                useDatabase(peek.identifier);
+                lexer.nextToken(); cur = lexer.nextToken();
+                ASSERTERR(cur, TK_IDENTIFIER, "use database: Expect identifier");
+                useDatabase(cur.identifier);
                 return PSR_OK;
             } else {
                 return err("use: Expect keyword DATABASE.");
@@ -384,8 +462,237 @@ ProcessStatementResult KontoTerminal::processStatement() {
 }
 
 void KontoTerminal::main() {
+    
     lexer.setStream(&std::cin);
     while (true) {
-        processStatement();
+        cout << ">>> ";
+        ProcessStatementResult psr = processStatement();
+        if (psr==PSR_QUIT) break;
+        std::cin.clear(); std::cin.ignore(1024, '\n'); lexer.clearBuffer();
     }
+}
+
+KontoTerminal::KontoTerminal() : lexer(true) {currentDatabase = "";}
+
+void KontoTerminal::createDatabase(string dbname) {
+    if (directory_exist(dbname)) {
+        PT(1, "Error: Directory already exists!");
+    } else 
+        create_directory(dbname);
+}
+
+void KontoTerminal::useDatabase(string dbname) {
+    if (directory_exist(dbname)) {
+        currentDatabase = dbname;
+        if (file_exist(dbname, "__tables.txt"))
+            tables = get_lines(dbname, "__tables.txt");
+        else tables.clear();
+    } else {
+        PT(1, "Error: No such database!");
+    }
+}
+
+void KontoTerminal::dropDatabase(string dbname) {
+    if (directory_exist(dbname)) {
+        remove_directory(dbname);
+    } else {
+        PT(1, "Error: No such database!");
+    }
+}
+
+void KontoTerminal::showDatabase(string dbname) {
+    if (directory_exist(dbname)) {
+        vector<string> t; t.clear();
+        if (file_exist(dbname, TABLES_FILE))
+            t = get_lines(dbname, TABLES_FILE);
+        PT(1, "[DATABASE " + dbname + "]");
+        if (t.size() > 0) {
+            PT(2, "Available tables: ");
+            for (auto item : t) 
+                PT(3, item);
+        } else PT(2, "No available tables.");
+    } else {
+        PT(1, "Error: No such database!");
+    }
+}
+
+void KontoTerminal::showDatabases() {
+    auto dirs = get_directories();
+    for (auto str : dirs) {
+        if (str == currentDatabase) cout << " -> "; else cout << "    ";
+        cout << str << endl;
+    }
+    if (dirs.size()==0) PT(1, "No available databases.");
+}
+
+void KontoTerminal::createTable(string name, const vector<KontoCDef>& defs) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (hasTable(name)) {PT(1, "Error: Table already exists."); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::createFile(currentDatabase + "/" + name, &handle);
+    for (auto& def : defs) {
+        KontoCDef copy = def;
+        handle->defineField(copy);
+    }
+    handle->finishDefineField();
+    handle->close();
+    tables.push_back(name);
+    save_lines(currentDatabase, TABLES_FILE, tables);
+}
+
+void KontoTerminal::dropTable(string name) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    bool flag = false;
+    for (int i=0;i<tables.size();i++) if (tables[i] == name) {
+        tables.erase(tables.begin() + i);
+        flag = true; break;
+    }
+    if (!flag) {PT(1, "Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + name, &handle);
+    handle->drop();
+    save_lines(currentDatabase, TABLES_FILE, tables);
+}
+
+bool KontoTerminal::hasTable(string table) {
+    for (int i=0;i<tables.size();i++) if (tables[i]==table) return true;
+    return false;
+}
+
+void KontoTerminal::showTable(string name) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(name)) {PT(1, "Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + name, &handle);
+    PT(1, "[TABLE " + name + "]");
+    cout << TABS[2] << "Records count: " << handle->recordCount << endl;
+    PT(1, "[COLUMNS]");
+    cout << TABS[2] << "|" << SS(10, "NAME") << "|" << SS(10, "TYPE") << "|" <<
+        SS(10, "NULL") << "|" <<
+        SS(30, "DEFAULT") << "|" << endl;
+    for (auto& item: handle->keys) {
+        cout << TABS[2] << "|" << SS(10, item.name) << "|"
+        << SS(10, type_to_string(item.type, item.size)) << "|"
+        << SS(10, bool_to_string(item.nullable)) << "|"
+        << SS(30, value_to_string(item.defaultValue, item.type)) << "|" << endl;
+    }
+    PT(1, "[PRIMARY KEY]");
+    if (handle->hasPrimaryKey()) {
+        cout << TABS[2] << "(";
+        vector<uint> primaryKeys;
+        handle->getPrimaryKeys(primaryKeys);
+        for (int i=0;i<primaryKeys.size();i++) {
+            if (i!=0) cout << ", ";
+            cout << handle->keys[primaryKeys[i]].name;
+        }
+        cout << ")" << endl;
+    } else PT(2, "No primary key defined.");
+    vector<string> fknames;
+    vector<vector<uint>> cols;
+    vector<string> foreignTable;
+    vector<vector<string>> foreignName;
+    handle->getForeignKeys(fknames, cols, foreignTable, foreignName);
+    PT(1, "[FOREIGN KEY]");
+    if (fknames.size() > 0) {
+        for (int i=0;i<fknames.size();i++) {
+            cout << TABS[2] << "FOREIGN KEY " << fknames[i] << " (";
+            for (int j=0;j<cols[i].size();j++) {
+                if (i!=0) cout << ", ";
+                cout << handle->keys[cols[i][j]].name; 
+            } 
+            cout << ") " << "REFERENCES " << foreignTable[i] << "(";
+            for (int j=0;j<foreignName[i].size();j++) {
+                if (i!=0) cout << ", ";
+                cout << foreignName[i][j];
+            }
+            cout << ")" << endl;
+        }
+    } else PT(2, "No foreign keys defined.");
+    handle->close();
+}
+
+void KontoTerminal::alterAddPrimaryKey(string table, const vector<string>& cols) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    vector<uint> id; id.clear();
+    for (auto& item : cols) {
+        uint p;
+        KontoResult res = handle->getKeyIndex(item.c_str(), p);
+        if (res != KR_OK) {
+            PT(1, "Error: No such key named " + item + ".");
+            return; 
+        }
+        id.push_back(p);
+    }
+    handle->alterAddPrimaryKey(id);
+    handle->close();
+}
+
+void KontoTerminal::alterDropPrimaryKey(string table) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    handle->alterDropPrimaryKey();
+    handle->close();
+}
+
+void KontoTerminal::alterAddColumn(string table, const KontoCDef& def) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    handle->alterAddColumn(def);
+    handle->close();
+}
+
+void KontoTerminal::alterDropColumn(string table, string col) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    handle->alterDropColumn(col);
+    handle->close();
+}
+
+void KontoTerminal::alterChangeColumn(string table, string original, const KontoCDef& newdef) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    handle->alterChangeColumn(original, newdef);
+    handle->close();
+}
+
+void KontoTerminal::alterAddForeignKey(string table, string fkname, 
+    const vector<string>& cols, string foreignTable, 
+    const vector<string>& foreignNames) 
+{
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    vector<uint> id; id.clear();
+    for (auto& item : cols) {
+        uint p;
+        KontoResult res = handle->getKeyIndex(item.c_str(), p);
+        if (res != KR_OK) {
+            PT(1, "Error: No such key named " + item + ".");
+            return; 
+        }
+        id.push_back(p);
+    }
+    handle->alterAddForeignKey(fkname, id, foreignTable, foreignNames);
+    handle->close();
+}
+
+void KontoTerminal::alterDropForeignKey(string table, string fkname) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    handle->alterDropForeignKey(fkname);
+    handle->close();
 }

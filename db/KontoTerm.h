@@ -5,6 +5,8 @@
 #include "../record/KontoRecord.h"
 #include "KontoLexer.h"
 
+const string TABLES_FILE = "__tables.txt";
+
 enum ProcessStatementResult {
     PSR_OK, 
     PSR_ERR,
@@ -14,14 +16,16 @@ enum ProcessStatementResult {
 class KontoTerminal {
 private:
     string currentDatabase;
+    vector<string> tables;
 public:
     KontoLexer lexer;
-    void listDatabases();
-    void listTables();
+    KontoTerminal();
+    bool hasTable(string table);
     void createDatabase(string dbname);
     void useDatabase(string dbname);
     void dropDatabase(string dbname);
     void showDatabase(string dbname);
+    void showDatabases();
     void createTable(string name, const vector<KontoCDef>& defs);
     void dropTable(string name);
     void showTable(string name);

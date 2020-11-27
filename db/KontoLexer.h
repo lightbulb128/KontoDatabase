@@ -27,7 +27,7 @@ enum TokenKind {
     TK_UPDATE, TK_SET, TK_SELECT, TK_IS, TK_INT, TK_VARCHAR,
     TK_DEFAULT, TK_CONSTRAINT, TK_CHANGE, TK_ALTER, TK_ADD, TK_RENAME,
     TK_DESC, TK_INDEX, TK_AND, TK_DATE, TK_FLOAT, TK_FOREIGN,
-    TK_REFERENCES,
+    TK_REFERENCES, TK_QUIT,
     // symbols
     TK_LPAREN, TK_RPAREN, TK_LBRACE, TK_RBRACE, TK_SEMICOLON, 
     TK_COMMA, 
@@ -125,6 +125,10 @@ public:
     Token nextToken();
     void putback(Token token);
     void killSpaces();
+    void clearBuffer(){
+        while (!charBuffer.empty()) charBuffer.pop();
+        while (!buffer.empty()) buffer.pop();
+    }
     Token peek();
     char getChar(){
         if (lastChar == '\n' || lastChar == EOF) {currentRow++; currentColumn=1;}

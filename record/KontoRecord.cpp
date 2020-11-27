@@ -5,8 +5,8 @@
 * 每页的大小位8192（个char）
 * 第一页为文件信息
   * 0到63位置为文件名
-  * 64到2048为域的声明：域类型，域长度，域名称，域flags，默认值，若为外键还包括外键表名和列名
-    * 域flags从最低位开始：可空、是否外键
+  * 64到2048为域的声明：域类型，域长度，域名称，域flags，默认值
+    * 域flags从最低位开始：可空
   * 2048开始，依次存储：
     文件中已有的页数（包括第一页），
     文件中已有的记录总数（包括已删除的），
@@ -18,7 +18,7 @@
     各个主键的编号
   * 3072开始，存储外键：
     * 外键个数
-      * 每个外键的列数，以及对应哪些列，外键的名字
+      * 每个外键的列数，以及对应哪些列，fkname, foreigntablename, foreignnames
   * 4096位开始为每页的信息：当前页中已有的记录数（包括已删除的）
 * 之后每页存储信息，按照每条记录长度存储
   * 每条记录，0为记录编号rid，1为控制位（二进制最低位表示是否已删除），之后开始为数据
@@ -38,7 +38,6 @@ const uint POS_PAGES             = 0x00001000;
 
 const uint FLAGS_DELETED         = 0x00000001;
 const uint FIELD_FLAGS_NULLABLE  = 0x00000001;
-const uint FIELD_FLAGS_FOREIGN   = 0x00000002;
 
 KontoTableFile::KontoTableFile() : pmgr(BufPageManager::getInstance()) {
     fieldDefined = false;
@@ -65,6 +64,7 @@ KontoResult KontoTableFile::createFile(
     ret->recordSize = VI(metapage + POS_META_RECORDSIZE) = 8; // 仅包括rid和控制位两个uint 
     VI(metapage + POS_META_FIELDCOUNT) = 0;
     VI(metapage + POS_META_PRIMARYCOUNT) = 0;
+    VI(metapage + POS_META_FOREIGNS) = 0;
     ret->pmgr.markDirty(bufindex);
     ret->removeIndices();
     *handle = ret;
@@ -98,12 +98,7 @@ KontoResult KontoTableFile::loadFile(
         CS(col.name, ptr);
         uint flags = VIP(ptr); 
         col.nullable = flags & FIELD_FLAGS_NULLABLE;
-        col.isForeign = flags & FIELD_FLAGS_FOREIGN;
         NCS(col.defaultValue, ptr, col.size);
-        if (col.isForeign) {
-            CS(col.foreignTable, ptr);
-            CS(col.foreignName, ptr);
-        }
         col.position = pos; 
         ret->keys.push_back(col);
         pos += col.size;
@@ -136,12 +131,7 @@ KontoResult KontoTableFile::defineField(KontoCDef& def) {
         uint flags = VIP(ptr); 
         //cout << "flags=" << flags << endl;
         col.nullable = flags & FIELD_FLAGS_NULLABLE;
-        col.isForeign = flags & FIELD_FLAGS_FOREIGN;
-        NCS(col.defaultValue, ptr, col.size);
-        if (col.isForeign) {
-            CS(col.foreignTable, ptr);
-            CS(col.foreignName, ptr);
-        }
+        ptr += col.size;
         col.position = pos; 
         pos += col.size;
         //cout << "add: " << (int)(ptr - originalptr) << endl;
@@ -149,11 +139,9 @@ KontoResult KontoTableFile::defineField(KontoCDef& def) {
     VIP(ptr) = def.type;
     VIP(ptr) = def.size;
     PS(ptr, def.name);
-    VIP(ptr) = def.nullable * FIELD_FLAGS_NULLABLE + def.isForeign * FIELD_FLAGS_FOREIGN;
-    if (def.isForeign) {
-        PS(ptr, def.foreignTable);
-        PS(ptr, def.foreignName);
-    }
+    VIP(ptr) = def.nullable * FIELD_FLAGS_NULLABLE;
+    assert(def.defaultValue!=nullptr);
+    PD(ptr, def.defaultValue, def.size);
     def.position = recordSize;
     recordSize += def.size;
     VI(metapage + POS_META_RECORDSIZE) = recordSize;
@@ -458,16 +446,28 @@ KontoResult KontoTableFile::createIndex(const vector<KontoKeyIndex>& keyIndices,
 
 void KontoTableFile::loadIndices() {
     indices = vector<KontoIndex*>();
+    //cout << "load indices" << endl;
     auto indexFilenames = get_files(filename + ".__index.");
     for (auto indexFilename : indexFilenames) {
         KontoIndex* ptr; KontoIndex::loadIndex(
             strip_filename(indexFilename), &ptr);
         indices.push_back(ptr);
     }
+    if (hasPrimaryKey()) {
+        vector<uint> primaryKeyIndices;
+        getPrimaryKeys(primaryKeyIndices);
+        vector<string> cols;
+        for (auto i : primaryKeyIndices) cols.push_back(keys[i].name);
+        string fn = KontoIndex::getIndexFilename(filename, cols);
+        for (auto& id : indices) if (id->getFilename() == fn) {
+            primaryIndex = id; break;
+        }
+    }
 }
 
 void KontoTableFile::removeIndices() {
     indices = vector<KontoIndex*>();
+    //cout << "remove indices" << endl;
     auto indexFilenames = get_files(filename + ".__index.");
     for (auto indexFilename : indexFilenames) 
         remove_file(indexFilename);
@@ -629,6 +629,7 @@ KontoResult KontoTableFile::alterAddPrimaryKey(const vector<uint>& primaryKeys) 
 KontoResult KontoTableFile::alterDropPrimaryKey() {
     if (!hasPrimaryKey()) return KR_NO_PRIMARY;
     int n = indices.size();
+    cout << primaryIndex->getFilename() << endl;
     for (int i=0;i<n;i++) 
         if (indices[i]->getFilename() == primaryIndex->getFilename()) {
             indices.erase(indices.begin() + i);
@@ -785,14 +786,10 @@ void KontoTableFile::rewriteKeyDefinitions() {
         VIP(ptr) = col.type;
         VIP(ptr) = col.size;
         PS(ptr, col.name);
-        uint flags = col.nullable * FIELD_FLAGS_NULLABLE + col.isForeign * FIELD_FLAGS_FOREIGN;
+        uint flags = col.nullable * FIELD_FLAGS_NULLABLE;
         VIP(ptr) = flags;
         if (col.defaultValue) PD(ptr, col.defaultValue, col.size);
         else PE(ptr, col.size);
-        if (col.isForeign) {
-            PS(ptr, col.foreignTable);
-            PS(ptr, col.foreignName);
-        }
     }
     pmgr.markDirty(bufindex);
 }
@@ -821,18 +818,27 @@ KontoResult KontoTableFile::alterAddForeignKey(string name, const vector<uint>& 
     char* ptr = metapage + POS_META_FOREIGNS;
     int n = VI(ptr); VIP(ptr) = n+1; 
     char buffer[PAGE_SIZE];
-    while (n--) {int c = VIP(ptr); while (c--) VIP(ptr); CS(buffer, ptr);}
+    while (n--) {
+        int c = VIP(ptr); 
+        for (int i=0;i<c;i++) VIP(ptr); 
+        CS(buffer, ptr);
+        CS(buffer, ptr);
+        for (int i=0;i<c;i++) CS(buffer, ptr);
+    }
     VIP(ptr) = foreignKeys.size(); 
     for (int i=0;i<foreignKeys.size();i++) {
         int p = foreignKeys[i];
         VIP(ptr) = p;
-        keys[p].isForeign = true;
-        keys[p].foreignName = foreignName[i];
-        keys[p].foreignTable = foreignTable[i];
     }
     PS(ptr, name);
+    PS(ptr, foreignTable);
+    for (auto& fname: foreignName) {
+        cout << "fname" << fname << endl;
+        PS(ptr, fname);
+    }
     pmgr.markDirty(bufindex);
     rewriteKeyDefinitions();
+    return KR_OK;
 }
 
 KontoResult KontoTableFile::alterDropForeignKey(string name) {
@@ -840,22 +846,68 @@ KontoResult KontoTableFile::alterDropForeignKey(string name) {
     KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
     char* ptr = metapage + POS_META_FOREIGNS;
     int n = VI(ptr); VIP(ptr) = n-1; 
-    char buffer[PAGE_SIZE];
+    char buffer[PAGE_SIZE], namebuffer[PAGE_SIZE];
     char* target, *tail; bool flag = false;
     while (n--) {
         char* bef = ptr;
         int c = VIP(ptr); 
-        while (c--) VIP(ptr); 
+        for (int i=0;i<c;i++) VIP(ptr); 
+        CS(namebuffer, ptr);
         CS(buffer, ptr);
-        if (buffer == name) target = bef, tail = ptr, flag = true;
+        for (int i=0;i<c;i++) CS(buffer, ptr);
+        if (namebuffer == name) target = bef, tail = ptr, flag = true;
     }
     if (!flag) return KR_NO_SUCH_FOREIGN;
-    int c = VI(target);
-    for (int i=0;i<c;i++) {
-        int p = VI(target + 4 + i * 4);
-        keys[p].isForeign = false; keys[p].foreignName = "";
-        keys[p].foreignTable = ""; 
-    }
     memmove(target, tail, ptr-tail);
     pmgr.markDirty(bufindex);
+    return KR_OK;
+}
+
+void KontoTableFile::getPrimaryKeys(vector<uint>& cols) {
+    cols.clear();
+    int bufindex;
+    KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
+    char* ptr = metapage + POS_META_PRIMARYCOUNT;
+    int n = VIP(ptr);
+    while (n--) cols.push_back(VIP(ptr));
+}
+
+void KontoTableFile::getForeignKeys(
+    vector<string>& fknames,
+    vector<vector<uint>>& cols, 
+    vector<string>& foreignTable, 
+    vector<vector<string>>& foreignName) 
+{
+    cols.clear(); foreignTable.clear(); foreignName.clear();
+    fknames.clear();
+    int bufindex;
+    KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
+    char* ptr = metapage + POS_META_FOREIGNS;
+    int n = VIP(ptr);
+    while (n--) {
+        int c = VIP(ptr);
+        vector<uint> curcols; curcols.clear();
+        for (int i=0;i<c;i++) curcols.push_back(VIP(ptr));
+        string fkname; 
+        cols.push_back(curcols);
+        CS(fkname, ptr); 
+        fknames.push_back(fkname);
+        string table; 
+        CS(table, ptr);
+        foreignTable.push_back(table);
+        vector<string> foreigncols; foreigncols.clear();
+        for (int i=0;i<c;i++) {
+            string buf; CS(buf, ptr);
+            foreigncols.push_back(buf);
+        }
+        foreignName.push_back(foreigncols);
+    }
+}
+
+void KontoTableFile::drop() {
+    close();
+    remove_file(get_filename(filename));
+    for (auto& i : indices) {
+        remove_file(get_filename(i->getFilename()));
+    }
 }

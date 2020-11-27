@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
+#include <fstream>
 #include <filesystem>
 #include "KontoConst.h"
 
@@ -25,14 +26,33 @@ bool get_files_start_with(string& str, string& prefix) {
 }
 
 vector<string> get_files(string prefix) {
-    vector<string> ret = vector<string>();
-    std::filesystem::path path(".");
-    std::filesystem::directory_iterator list(path);
-    for (auto& iter : list) {
-        string filename = iter.path().filename().string();
-        if (get_files_start_with(filename, prefix)) ret.push_back(filename);
+    int f = prefix.find('/');
+    if (f == -1) {
+        vector<string> ret = vector<string>();
+        std::filesystem::path path(".");
+        std::filesystem::directory_iterator list(path);
+        for (auto& iter : list) {
+            string filename = iter.path().filename().string();
+            if (get_files_start_with(filename, prefix)) ret.push_back(filename);
+        }
+        //cout << "get files:" << endl;
+        //for (auto& str : ret) cout << str << endl;
+        return ret;
+    } else {
+        vector<string> ret = vector<string>();
+        string inner = prefix.substr(f+1, prefix.length() - f - 1);
+        string outer = prefix.substr(0, f);
+        std::filesystem::path path(outer);
+        std::filesystem::directory_iterator list(path);
+        for (auto& iter : list) {
+            string filename = iter.path().filename().string();
+            if (get_files_start_with(filename, inner))
+                ret.push_back(outer + "/" + filename);
+        }
+        //cout << "get files:" << endl;
+        //for (auto& str : ret) cout << str << endl;
+        return ret;
     }
-    return ret;
 }
 
 vector<string> get_index_key_names(string fullFilename) {
@@ -63,4 +83,50 @@ void rename_file(string old, string newname) {
     std::filesystem::path path(old);
     std::filesystem::path newpath(newname);
     std::filesystem::rename(path, newpath);
+}
+
+vector<string> get_directories() {
+    std::filesystem::path path(".");
+    std::filesystem::directory_iterator list(path);
+    vector<string> ret; ret.clear();
+    for (auto& iter: list) {
+        if (iter.is_directory()) ret.push_back(iter.path().filename().string());
+    }
+    return ret;
+}
+
+bool directory_exist(string str) {
+    std::filesystem::path path(str);
+    return std::filesystem::exists(path);
+}
+
+void create_directory(string str) {
+    std::filesystem::create_directory(str);
+}
+
+void remove_directory(string str) {
+    std::filesystem::remove(str);
+}
+
+bool file_exist(string dir, string file) {
+    return directory_exist(dir + "/" + file);
+}
+
+vector<string> get_lines(string dir, string file) {
+    std::ifstream fin(dir+"/"+file);
+    vector<string> ret; ret.clear();
+    while (!fin.eof()) {
+        string s; fin >> s;
+        ret.push_back(s);
+    }
+    fin.close();
+    return ret;
+}
+
+void save_lines(string dir, string file, const vector<string>& lines) {
+    std::ofstream fout(dir+"/"+file);
+    for (auto& l : lines) {
+        fout << l << endl;
+    }
+    fout.close();
 }

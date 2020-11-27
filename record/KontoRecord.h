@@ -16,26 +16,38 @@ struct KontoColumnDefinition {
     KontoKeyType type;
     uint size;
     bool nullable;
-    bool isForeign;
-    string foreignTable;
-    string foreignName;
     char* defaultValue;
     uint position;
     KontoColumnDefinition(string _name, KontoKeyType _type, uint _size, bool _nullable = true, 
         bool _isForeign = false, string _foreignTable = "", string _foreignName = "", 
-        char* _defaultValue = nullptr): name(_name), type(_type), size(_size), nullable(_nullable),
-        isForeign(_isForeign), foreignTable(_foreignTable), foreignName(_foreignName), 
-        defaultValue(_defaultValue) {}
+        char* _defaultValue = nullptr): name(_name), type(_type), size(_size), nullable(_nullable)
+    {
+        if (_defaultValue == nullptr) {
+            defaultValue = new char[size]; 
+            switch (type) {
+                case KT_INT:
+                    *(int*)(defaultValue) = DEFAULT_INT_VALUE;
+                    break;
+                case KT_FLOAT:
+                    *(double*)(defaultValue) = DEFAULT_FLOAT_VALUE;
+                    break;
+                case KT_STRING:
+                    memset(defaultValue, 0, size);
+                    break;
+            }
+        } else {
+            defaultValue = new char[size]; 
+            memcpy(defaultValue, _defaultValue, size); 
+        }
+    }
     KontoColumnDefinition(){}
     KontoColumnDefinition(const KontoColumnDefinition& def):
         name(def.name), type(def.type), size(def.size), nullable(def.nullable),
-        isForeign(def.isForeign), foreignTable(def.foreignTable),
-        foreignName(def.foreignName), position(def.position) 
+        position(def.position) 
     {
-        if (def.defaultValue) {
-            defaultValue = new char[size]; 
-            memcpy(defaultValue, def.defaultValue, def.size);
-        } else defaultValue = nullptr;
+        assert(def.defaultValue != nullptr);
+        defaultValue = new char[size]; 
+        memcpy(defaultValue, def.defaultValue, def.size); 
     }
 };
 
@@ -85,6 +97,7 @@ public:
 typedef KontoQueryResult KontoQRes;
 
 class KontoTableFile {
+    friend class KontoTerminal;
 private:
     BufPageManager& pmgr;
     KontoTableFile();
@@ -198,6 +211,16 @@ public:
     KontoResult alterDropColumn(string name);
     KontoResult alterRenameColumn(string old, string newname);
     KontoResult alterChangeColumn(string original, const KontoCDef& newdef);
+
+    void getPrimaryKeys(vector<uint>& cols);
+
+    void getForeignKeys(
+        vector<string>& fknames, 
+        vector<vector<uint>>& cols, 
+        vector<string>& foreignTable, 
+        vector<vector<string>>& foreignName);
+
+    void drop();
 
     void debugtest();
 };

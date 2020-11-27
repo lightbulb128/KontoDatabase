@@ -86,6 +86,7 @@ std::ostream& operator <<(std::ostream& stream, const Token& t){
         case TK_FLOAT: stream << "Float"; break;
         case TK_FOREIGN: stream << "Foreign"; break;
         case TK_REFERENCES: stream << "References"; break;
+        case TK_QUIT: stream << "Quit"; break;
         default: stream << "Unknown token type"; break;
     }
     stream << "]";
@@ -349,9 +350,9 @@ void KontoLexer::addKeyword(const char* keyword, TokenKind tk) {
 
 void KontoLexer::addDefaultKeywords(){
     addKeyword("database", TK_DATABASE);
-    addKeyword("databases", TK_DATABASE);
-    addKeyword("table", TK_DATABASE);
-    addKeyword("show", TK_DATABASE);
+    addKeyword("databases", TK_DATABASES);
+    addKeyword("table", TK_TABLE);
+    addKeyword("show", TK_SHOW);
     addKeyword("create", TK_CREATE);
     addKeyword("drop", TK_DROP);
     addKeyword("use", TK_USE);
@@ -384,6 +385,7 @@ void KontoLexer::addDefaultKeywords(){
     addKeyword("float", TK_FLOAT);
     addKeyword("foreign", TK_FOREIGN);
     addKeyword("references", TK_REFERENCES);
+    addKeyword("quit", TK_QUIT);
 }
 
 void KontoLexer::putback(Token token) {
@@ -394,4 +396,8 @@ Token KontoLexer::peek(){
     Token next = nextToken();
     putback(next);
     return next;
+}
+
+void KontoLexer::appendErrorInfo(string str) {
+    cout << str << endl;
 }

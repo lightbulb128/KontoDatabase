@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string.h>
 #include <math.h>
+#include "../db/KontoTerm.h"
 
 using std::cout;
 using std::endl; 
@@ -408,17 +409,14 @@ void test_alter () {
 }
 
 int test_debug() {
-    auto p = get_files("testfile.index.");
-    for (auto name: p) {
-        auto k = get_index_key_names(name);
-        cout << "filename " << name << endl;
-        for (auto key: k) cout << " " << key;
-        cout << endl;
-    }
+    get_files("folder/__t");
     return 0;
 }
 
+KontoTerminal terminal;
+
 int main(){
-    test_alter();
+    terminal.main();
+    //test_debug();
     return 0;
 }

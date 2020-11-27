@@ -58,6 +58,9 @@ const KontoKeyType KT_INT        = 0x0;
 const KontoKeyType KT_STRING     = 0x1;
 const KontoKeyType KT_FLOAT      = 0x2;
 
+const int DEFAULT_INT_VALUE = 0;
+const double DEFAULT_FLOAT_VALUE = 0.0f;
+
 string get_filename(string filename);
 
 string strip_filename(string filename);
@@ -66,11 +69,27 @@ void debug_assert(bool assertion, std::string message);
 
 std::vector<string> get_files(string prefix);
 
+std::vector<string> get_directories();
+
 std::vector<string> get_index_key_names(string fullFilename);
 
 void remove_file(string filename);
 
 void rename_file(string old, string newname); 
+
+vector<string> get_directories();
+
+bool directory_exist(string str);
+
+void create_directory(string str);
+
+void remove_directory(string str);
+
+bool file_exist(string dir, string file);
+
+vector<string> get_lines(string dir, string file);
+
+void save_lines(string dir, string file, const vector<string>& lines);
 
 // VALUE INTEGER
 inline uint& VI(char* ptr){return *(uint*)(ptr);}
@@ -87,7 +106,7 @@ inline void CS(string& dest, charptr& ptr){
 // NEW COPY STRING
 inline void NCS(charptr& dest, charptr& ptr, uint len){
     dest = new char[len];
-    strcpy(dest, ptr); ptr+=len;
+    memcpy(dest, ptr, len); ptr+=len;
 }
 // PASTE STRING
 inline void PS(charptr& dest, char* src){
