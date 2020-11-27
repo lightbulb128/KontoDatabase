@@ -456,6 +456,7 @@ void KontoTableFile::loadIndices() {
     for (auto indexFilename : indexFilenames) {
         KontoIndex* ptr; KontoIndex::loadIndex(
             strip_filename(indexFilename), &ptr);
+        cout << "loaded : " << indexFilename << endl;
         indices.push_back(ptr);
     }
     if (hasPrimaryKey()) {
@@ -481,8 +482,11 @@ void KontoTableFile::removeIndices() {
 KontoResult KontoTableFile::insertIndex(KontoRPos& pos) {
     char* data = new char[recordSize];
     getDataCopied(pos, data);
-    for (auto index : indices)
+    for (auto& index : indices) {
+        cout << "insert into: " << index->getFilename() << endl;
         index->insert(data, pos);
+        //index->debugPrint();
+    }
     delete[] data;
     return KR_OK;
 }
@@ -915,6 +919,9 @@ void KontoTableFile::drop() {
 
 KontoResult KontoTableFile::insert(char* record) {
     KontoRPos pos; 
+    if (hasPrimaryKey()) {
+        
+    }
     insertEntry(record, &pos);
     insertIndex(pos);
     return KR_OK;
@@ -935,4 +942,62 @@ KontoResult KontoTableFile::dropIndex(const vector<uint>& cols) {
     }
     if (ptr==nullptr) return KR_NOT_FOUND;
     ptr->drop(); return KR_OK;
+}
+
+void KontoTableFile::debugIndex(const vector<uint>& cols) {
+    KontoIndex* index = getIndex(cols);
+    index->debugPrint();
+}
+
+void KontoTableFile::printTable(bool meta, bool pos) {
+    cout << "[TABLE " << filename << "]\n";
+    if (meta) {
+        cout << "    recordsize=" << recordSize << endl;
+        cout << "    recordcount=" << recordCount << endl;
+        cout << "    pagecount=" << pageCount << endl;
+    }
+    if (pos) {
+        cout << "|" << SS(2, "P", true); 
+        cout << "|" << SS(4, "I", true);
+    }
+    vector<uint> sz; sz.clear();
+    for (auto key: keys) {
+        if (key.type == KT_INT) sz.push_back(7);
+        else if (key.type == KT_FLOAT) sz.push_back(9);
+        else if (key.type == KT_STRING) sz.push_back(key.size > 20 ? 20 : (key.size-1));
+        else sz.push_back(8);
+        cout << "|" << SS(sz[sz.size()-1], key.name, true);
+    }
+    cout << "|" << endl;
+    KontoQRes q; allEntries(q); 
+    char* data = new char[getRecordSize()];
+    for (auto item : q.items) {
+        if (pos) {
+            cout << "|" << SS(2, std::to_string(item.page), true);
+            cout << "|" << SS(4, std::to_string(item.id), true);
+        }
+        getDataCopied(item, data);
+        for (int i=0;i<keys.size();i++) {
+            cout << "|";
+            switch (keys[i].type) {
+                case KT_INT: {
+                    int vi = *((int*)(data + keys[i].position));
+                    cout << SS(sz[i], std::to_string(vi), true); break;
+                }
+                case KT_FLOAT: {
+                    double vd = *((double*)(data + keys[i].position));
+                    cout << SS(sz[i], std::to_string(vd), true); break;
+                }
+                case KT_STRING: {
+                    char* vs = (char*)(data+keys[i].position);
+                    cout << SS(sz[i], vs, true); break;
+                }
+                default: {
+                    cout << SS(sz[i], "unknown"); break;
+                }
+            }
+        }
+        cout << "|" << endl;
+    }
+    delete[] data;
 }

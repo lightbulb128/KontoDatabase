@@ -10,6 +10,16 @@ using std::string;
 using std::cout;
 using std::endl;
 
+void PT(int tabs, const string& prom) {
+    cout << TABS[tabs] << prom << endl;
+}
+
+string SS(int t, const string& s, bool right) {
+    int l = s.length();
+    if (l > t) return s.substr(0, t - 3) + "...";
+    return (!right) ? (s + SPACES.substr(0, t-l)) : (SPACES.substr(0, t-l) + s);
+}
+
 string get_filename(string filename) {
     return filename+".txt";
 }

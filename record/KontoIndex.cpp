@@ -360,6 +360,7 @@ KontoResult KontoIndex::insertRecur(char* record, KontoRPos& pos, uint pageID) {
             (childcount - iter) * (12+indexSize));
         setKey(page + POS_PAGE_DATA + iter * (12+indexSize), record, pos);
         VI(page + POS_PAGE_CHILDCOUNT) = ++childcount;
+        pmgr.markDirty(bufindex);
         if (POS_PAGE_DATA + childcount * (12+indexSize) >= SPLIT_UPPERBOUND) { 
             //cout << "before split: page " << pageID << " has " << childcount
             //    << " children. indexsize = " << indexSize << endl; 

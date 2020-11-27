@@ -19,6 +19,15 @@ typedef unsigned int KontoKeyIndex;
 typedef unsigned int KontoKeyType;
 typedef char* charptr;
 
+const string TABS[5] = {"", "    ", "        ", "            ", "                "};
+const string SPACES = "                                                          ";
+
+// PRINT WITH TABS
+void PT(int tabs, const string& prom);
+
+// SPACE PADDING
+string SS(int t, const string& s, bool right = false);
+
 struct KontoRPos;
 
 class KontoIndex;

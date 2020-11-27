@@ -1,15 +1,30 @@
-#include <stdio.h>
-#include <vector>
+// Include the libraries
+#include <iostream>
 
-struct Foo {
-    int k;
-    void print(){printf("k=%d\n",k);}
-};
+using namespace std;
 
 int main(){
-    std::vector<Foo> vec;
-    vec.push_back(Foo{.k = 12});
-    for (auto& f : vec) f.k = 24;
-    vec[0].print();
+    // The game should proceed endlessly until the player 
+    // wants to quit.
+    while (true) {
+        // When a new round begins,
+        // first get a string "answer" from the file
+        // and get a string "scrambled" from the file
+        char answer[100];
+        char scrambled[100];
+        // Get the length of the answer.
+        // Hint: use strlen
+        int len; 
+        // ...
+        // Then initialize a partial solution array
+        char partial[100];
+        
+        // The player has three chances
+        for (int time = 0; time < 3; time ++) {
+            
+        }
+        // Ask the player if the game should end
+        // ...
+    }
     return 0;
 }

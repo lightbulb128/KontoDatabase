@@ -226,6 +226,10 @@ public:
 
     KontoResult dropIndex(const vector<uint>& cols);
 
+    void debugIndex(const vector<uint>& cols);
+
+    void printTable(bool meta = false, bool pos = false);
+
     void debugtest();
 };
 

@@ -87,6 +87,7 @@ std::ostream& operator <<(std::ostream& stream, const Token& t){
         case TK_FOREIGN: stream << "Foreign"; break;
         case TK_REFERENCES: stream << "References"; break;
         case TK_QUIT: stream << "Quit"; break;
+        case TK_DEBUG: stream << "Debug"; break;
         default: stream << "Unknown token type"; break;
     }
     stream << "]";
@@ -386,6 +387,7 @@ void KontoLexer::addDefaultKeywords(){
     addKeyword("foreign", TK_FOREIGN);
     addKeyword("references", TK_REFERENCES);
     addKeyword("quit", TK_QUIT);
+    addKeyword("debug", TK_DEBUG);
 }
 
 void KontoLexer::putback(Token token) {

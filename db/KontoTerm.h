@@ -5,8 +5,8 @@
 #include "../record/KontoRecord.h"
 #include "KontoLexer.h"
 
-const string TABLES_FILE = "__tables.txt";
-const string INDICES_FILE = "__indices.txt";
+const string TABLES_FILE = "__tables";
+const string INDICES_FILE = "__indices";
 
 enum ProcessStatementResult {
     PSR_OK, 
@@ -51,6 +51,10 @@ public:
     void dropTableIndices(string tb);
     void createIndex(string idname, string table, const vector<string>& cols);
     void dropIndex(string idname);
+    void debugIndex(string idname);
+    void debugIndex();
+    void debugTable(string tbname);
+    void debugPrimary(string tbname);
 
     ProcessStatementResult err(string message);
     void main();

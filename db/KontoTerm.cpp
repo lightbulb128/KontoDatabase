@@ -5,21 +5,6 @@ using std::to_string;
 
 #define ASSERTERR(token, type, message) if (token.tokenKind != type) return err(message)
 
-string TABS[5] = {"", "    ", "        ", "            ", "                "};
-string SPACES = "                                                          ";
-
-// PRINT WITH TABS
-void PT(int tabs, const string& prom) {
-    cout << TABS[tabs] << prom << endl;
-}
-
-// SPACE PADDING
-string SS(int t, const string& s, bool right = false) {
-    int l = s.length();
-    if (l > t) return s.substr(0, t - 3) + "...";
-    return (!right) ? (s + SPACES.substr(0, t-l)) : (SPACES.substr(0, t-l) + s);
-}
-
 string bool_to_string(bool b){
     return b ? "Yes" : "No";
 }
@@ -215,7 +200,7 @@ ProcessStatementResult KontoTerminal::processStatement() {
                     ASSERTERR(cur, TK_IDENTIFIER, "alter table drop foreign: Expect identifier.");
                     alterDropForeignKey(table, cur.identifier);
                     return PSR_OK;
-                } else if (cur.tokenKind = TK_INDEX) {
+                } else if (cur.tokenKind == TK_INDEX) {
                     cur = lexer.nextToken();
                     ASSERTERR(cur, TK_IDENTIFIER, "alter table drop index: Expect identifier.");
                     string idname = cur.identifier;
@@ -426,6 +411,27 @@ ProcessStatementResult KontoTerminal::processStatement() {
             }
         }
 
+        case TK_DEBUG: {
+            cur = lexer.nextToken();
+            if (cur.tokenKind == TK_INDEX) {
+                peek = lexer.peek();
+                if (peek.tokenKind == TK_IDENTIFIER) {
+                    lexer.nextToken(); debugIndex(peek.identifier);
+                } else debugIndex();
+                return PSR_OK;
+            } else if (cur.tokenKind == TK_TABLE) {
+                cur = lexer.nextToken();
+                ASSERTERR(cur, TK_IDENTIFIER, "debug table: expect identifier.");
+                debugTable(cur.identifier);
+                return PSR_OK;
+            } else if (cur.tokenKind == TK_PRIMARY) {
+                cur = lexer.nextToken();
+                ASSERTERR(cur, TK_IDENTIFIER, "debug primary: expect identifier.");
+                debugPrimary(cur.identifier);
+                return PSR_OK;
+            }
+        }
+
         case TK_DROP: {
             Token peek = lexer.peek();
             if (peek.tokenKind == TK_DATABASE) {
@@ -540,8 +546,8 @@ void KontoTerminal::dropDatabase(string dbname) {
 void KontoTerminal::showDatabase(string dbname) {
     if (directory_exist(dbname)) {
         vector<string> t; t.clear();
-        if (file_exist(dbname, TABLES_FILE))
-            t = get_lines(dbname, TABLES_FILE);
+        if (file_exist(dbname, get_filename(TABLES_FILE)))
+            t = get_lines(dbname, get_filename(TABLES_FILE));
         PT(1, "[DATABASE " + dbname + "]");
         if (t.size() > 0) {
             PT(2, "Available tables: ");
@@ -574,7 +580,7 @@ void KontoTerminal::createTable(string name, const vector<KontoCDef>& defs) {
     handle->finishDefineField();
     handle->close();
     tables.push_back(name);
-    save_lines(currentDatabase, TABLES_FILE, tables);
+    save_lines(currentDatabase, get_filename(TABLES_FILE), tables);
 }
 
 void KontoTerminal::dropTable(string name) {
@@ -588,7 +594,7 @@ void KontoTerminal::dropTable(string name) {
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + name, &handle);
     handle->drop();
-    save_lines(currentDatabase, TABLES_FILE, tables);
+    save_lines(currentDatabase, get_filename(TABLES_FILE), tables);
 }
 
 bool KontoTerminal::hasTable(string table) {
@@ -682,6 +688,7 @@ void KontoTerminal::alterAddColumn(string table, const KontoCDef& def) {
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
     handle->alterAddColumn(def);
+    dropTableIndices(table); saveIndices();
     handle->close();
 }
 
@@ -691,6 +698,7 @@ void KontoTerminal::alterDropColumn(string table, string col) {
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
     handle->alterDropColumn(col);
+    dropTableIndices(table); saveIndices();
     handle->close();
 }
 
@@ -700,6 +708,7 @@ void KontoTerminal::alterChangeColumn(string table, string original, const Konto
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
     handle->alterChangeColumn(original, newdef);
+    dropTableIndices(table); saveIndices();
     handle->close();
 }
 
@@ -712,6 +721,10 @@ void KontoTerminal::alterAddForeignKey(string table, string fkname,
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
     vector<uint> id; id.clear();
+    if (fkname == "") {
+        fkname = "__fkey." + foreignTable;
+        for (auto& item:foreignNames) fkname+="."+item;
+    }
     for (auto& item : cols) {
         uint p;
         KontoResult res = handle->getKeyIndex(item.c_str(), p);
@@ -769,15 +782,16 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
                 ASSERTERR(cur, TK_COMMA, "insert value: Expect comma.");
             }
         }
-        Token cur = lexer.nextToken();
+        cur = lexer.nextToken();
         ASSERTERR(cur, TK_RPAREN, "insert values: Expect Rparen.");
         handle->insert(buffer);
         if (lexer.peek().tokenKind == TK_SEMICOLON) break;
-        Token cur = lexer.nextToken();
+        cur = lexer.nextToken();
         ASSERTERR(cur, TK_COMMA, "insert values: Expect comma.");
     }
     delete[] buffer;
     handle->close();
+    return PSR_OK;
 }
 
 void KontoTerminal::loadIndices() {
@@ -809,7 +823,7 @@ void KontoTerminal::saveIndices() {
 
 void KontoTerminal::dropTableIndices(string tb) {
     int n = indices.size();
-    for (int i=n;i>=0;i--) if (indices[i].table == tb) indices.erase(indices.begin() + i);
+    for (int i=n-1;i>=0;i--) if (indices[i].table == tb) indices.erase(indices.begin() + i);
 }
 
 void KontoTerminal::createIndex(string idname, string table, const vector<string>& cols) {
@@ -851,4 +865,52 @@ void KontoTerminal::dropIndex(string idname) {
     handle->close();
     indices.erase(indices.begin() + position);
     saveIndices();
+}
+
+void KontoTerminal::debugIndex(string idname) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    string table;
+    int n = indices.size();
+    KontoIndexDesc* ptr = nullptr; int position;
+    for (int i=0; i<n; i++) if (indices[i].name == idname) {ptr = &indices[i]; position = i; break;}
+    if (ptr==nullptr) {PT(1, "Error: No such index!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + ptr->table, &handle);
+    handle->debugIndex(ptr->cols);
+    handle->close();
+    saveIndices();
+}
+
+void KontoTerminal::debugIndex() {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    for (auto& item : indices) {
+        cout << TABS[1] << "[" << item.name << " on " << item.table << "] ";
+        cout << "columns (";
+        for (int i=0;i<item.cols.size();i++) {
+            if (i!=0) cout << ", ";
+            cout << item.cols[i];
+        }
+        cout << ")" << endl;
+    }
+    if (indices.size()==0) cout << TABS[1] << "No explicitly defined index!" << endl;
+}
+
+void KontoTerminal::debugTable(string tbname) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(tbname)) {PT(1,"Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + tbname, &handle);
+    handle->printTable(true, true);
+    handle->close();
+}
+
+void KontoTerminal::debugPrimary(string tbname) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(tbname)) {PT(1,"Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + tbname, &handle);
+    KontoIndex* index = handle->getPrimaryIndex();
+    if (index==nullptr) {PT(1,"Error: This table has no primary index."); return;};
+    index->debugPrint();
+    handle->close();
 }
