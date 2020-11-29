@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <cmath>
 
 using std::cout;
 using std::endl;
@@ -64,12 +65,28 @@ enum KontoResult {
     KR_NO_SUCH_FOREIGN          = 0x00000403
 };
 
+enum OperatorType {
+    OP_EQUAL,
+    OP_NOT_EQUAL,
+    OP_LESS,
+    OP_LESS_EQUAL,
+    OP_GREATER,
+    OP_GREATER_EQUAL,
+    OP_LCRC,
+    OP_LORC,
+    OP_LCRO,
+    OP_LORO
+};
+
+const int OP_DOUBLE = OP_LCRC;
+
 const KontoKeyType KT_INT        = 0x0;
 const KontoKeyType KT_STRING     = 0x1;
 const KontoKeyType KT_FLOAT      = 0x2;
 
 const int DEFAULT_INT_VALUE = 0;
-const double DEFAULT_FLOAT_VALUE = 0.0f;
+const double DEFAULT_FLOAT_VALUE = std::nan("");
+const char* DEFAULT_STRING_VALUE = "";
 
 string get_filename(string filename);
 
@@ -100,6 +117,10 @@ bool file_exist(string dir, string file);
 vector<string> get_lines(string dir, string file);
 
 void save_lines(string dir, string file, const vector<string>& lines);
+
+vector<string> single_string_vector(string str);
+
+vector<uint> single_uint_vector(uint num);
 
 // VALUE INTEGER
 inline uint& VI(char* ptr){return *(uint*)(ptr);}

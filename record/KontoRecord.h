@@ -73,25 +73,30 @@ private:
     friend class KontoIndex;
     // 应当保持严格升序，主关键字page，副关键字id
     vector<KontoRPos> items;
+    bool sorted;
     // 向末尾插入
     void push(const KontoRPos& p){items.push_back(p);}
 public:
     // 初始化空的向量。
-    KontoQueryResult(){items=vector<KontoRPos>();}
+    KontoQueryResult(){items=vector<KontoRPos>(); sorted = false;}
     // 拷贝构造。
     KontoQueryResult(const KontoQueryResult& r);
     // 两个查询结果求并。
-    KontoQueryResult join(const KontoQueryResult& b);
+    KontoQueryResult join(KontoQueryResult& b);
     // 两个查询结果求交。
-    KontoQueryResult meet(const KontoQueryResult& b);
+    KontoQueryResult meet(KontoQueryResult& b);
     // 本查询结果减去另一个查询结果，即求集合的差。
-    KontoQueryResult substract(const KontoQueryResult& b);
+    KontoQueryResult substract(KontoQueryResult& b);
+
+    KontoQueryResult append(const KontoQueryResult& b);
     // 查询结果中的记录数目。
     uint size() const {return items.size();}
     // 清空查询结果向量。
     void clear(){items.clear();}
     // 获取查询结果。
     KontoRPos& get(int id){return items[id];}
+
+    void sort();
 };
 
 typedef KontoQueryResult KontoQRes;
@@ -124,7 +129,7 @@ public:
     // 检查一个记录位置是否有效。
     KontoResult checkPosition(KontoRPos& pos);
     // 获取指向记录位置数据的指针，并指出接下来是读取还是写入。
-    char* getDataPointer(KontoRPos& pos, KontoKeyIndex key, bool write);
+    char* getDataPointer(const KontoRPos& pos, KontoKeyIndex key, bool write);
     // 定义表的一个属性域。
     KontoResult defineField(KontoCDef& def); 
     // 结束属性域的定义，之后若再尝试定义将会出错。
@@ -148,11 +153,11 @@ public:
     // 读取指定位置记录的float域。
     KontoResult readEntryFloat(KontoRPos& pos, KontoKeyIndex key, double& out);
     // 查询表中某个int域满足某条件的结果，其中判定条件由cond指定，查询结果储存在out中。
-    KontoResult queryEntryInt(KontoQRes& from, KontoKeyIndex key, function<bool(int)> cond, KontoQRes& out);
+    KontoResult queryEntryInt(const KontoQRes& from, KontoKeyIndex key, function<bool(int)> cond, KontoQRes& out);
     // 查询表中某个string域满足某条件的结果，其中判定条件由cond指定，查询结果储存在out中。
-    KontoResult queryEntryString(KontoQRes& from, KontoKeyIndex key, function<bool(char*)> cond, KontoQRes& out);
+    KontoResult queryEntryString(const KontoQRes& from, KontoKeyIndex key, function<bool(const char*)> cond, KontoQRes& out);
     // 查询表中某个float域满足某条件的结果，其中判定条件由cond指定，查询结果储存在out中。
-    KontoResult queryEntryFloat(KontoQRes& from, KontoKeyIndex key, function<bool(double)> cond, KontoQRes& out);
+    KontoResult queryEntryFloat(const KontoQRes& from, KontoKeyIndex key, function<bool(double)> cond, KontoQRes& out);
     // 获取所有记录位置组成的向量，用于新的查询。
     KontoResult allEntries(KontoQRes& out);
     // 获取某属性对应的属性编号。
@@ -160,7 +165,7 @@ public:
     // 获取一条记录的大小，以char=1为单位
     uint getRecordSize();
     // 获取某一条记录，以pos指定，将数据存储到dest中
-    KontoResult getDataCopied(KontoRPos& pos, char* dest);
+    KontoResult getDataCopied(const KontoRPos& pos, char* dest);
     // 创建索引表并与该数据表绑定，handle非空时将存储创建的索引表的指针
     KontoResult createIndex(const vector<KontoKeyIndex>& keyIndices, KontoIndex** handle);
     // 删除所有索引表
@@ -184,7 +189,7 @@ public:
     // 向cout输出一条记录
     void printRecord(char* record);
     // 向cout输出一条记录，通过pos指定
-    void printRecord(KontoRPos& pos, bool printPos = false);
+    void printRecord(const KontoRPos& pos, bool printPos = false);
     // 设置某一条记录的某一个int域
     KontoResult setEntryInt(char* record, KontoKeyIndex key, int datum);
     // 设置某一条记录的某一个string域
@@ -195,7 +200,7 @@ public:
     // The first two bytes will be ignored for they record id and flags
     KontoResult insertEntry(char* record, KontoRPos* pos);
 
-    char* getRecordPointer(KontoRPos& pos, bool write);
+    char* getRecordPointer(const KontoRPos& pos, bool write);
 
     KontoResult getKeyNames(const vector<uint>& keyIndices, vector<string>& out); 
 
@@ -228,7 +233,24 @@ public:
 
     void debugIndex(const vector<uint>& cols);
 
+    void printTableHeader(bool pos = false);
+    void printTableEntry(const KontoRPos& item, bool pos = false);
     void printTable(bool meta = false, bool pos = false);
+    void printTable(const KontoQRes& list, bool pos);
+
+    void queryEntryInt(const KontoQRes& from, KontoKeyIndex key, OperatorType op, int rvalue, KontoQRes& out);
+    void queryEntryFloat(const KontoQRes& from, KontoKeyIndex key, OperatorType op, double rvalue, KontoQRes& out);
+    void queryEntryString(const KontoQRes& from, KontoKeyIndex key, OperatorType op, const char* rvalue, KontoQRes& out);
+
+    void queryEntryInt(const KontoQRes& from, KontoKeyIndex key, OperatorType op, 
+        int lvalue, int rvalue, KontoQRes& out);
+    void queryEntryFloat(const KontoQRes& from, KontoKeyIndex key, OperatorType op, 
+        double lvalue, double rvalue, KontoQRes& out);
+    void queryEntryString(const KontoQRes& from, KontoKeyIndex key, OperatorType op, 
+        const char* lvalue, const char* rvalue, KontoQRes& out);
+
+    void queryCompare(const KontoQRes& from, KontoKeyIndex k1, KontoKeyIndex k2, 
+        OperatorType op, KontoQRes& out);
 
     void debugtest();
 };

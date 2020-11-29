@@ -13,13 +13,13 @@
     文件中已有的记录总数（不包括已删除的），
     每条记录的长度
     域的个数
+    当前最后一页已有的条目数
   * 2560开始，
     主键域的个数（若无主键置零）
     各个主键的编号
   * 3072开始，存储外键：
     * 外键个数
       * 每个外键的列数，以及对应哪些列，fkname, foreigntablename, foreignnames
-  * 4096位开始为每页的信息：当前页中已有的记录数（包括已删除的）
 * 之后每页存储信息，按照每条记录长度存储
   * 每条记录，0为记录编号rid，1为控制位（二进制最低位表示是否已删除），之后开始为数据
 */
@@ -31,10 +31,10 @@ const uint POS_META_RECORDCOUNT  = 0x00000804;
 const uint POS_META_EXISTCOUNT   = 0x00000808;
 const uint POS_META_RECORDSIZE   = 0x0000080c;
 const uint POS_META_FIELDCOUNT   = 0x00000810;
+const uint POS_META_LASTPAGE     = 0x00000814;
 const uint POS_META_PRIMARYCOUNT = 0x00000a00;
 const uint POS_META_PRIMARIES    = 0x00000a04;
 const uint POS_META_FOREIGNS     = 0x00000c00;
-const uint POS_PAGES             = 0x00001000;
 
 const uint FLAGS_DELETED         = 0x00000001;
 const uint FIELD_FLAGS_NULLABLE  = 0x00000001;
@@ -65,6 +65,7 @@ KontoResult KontoTableFile::createFile(
     VI(metapage + POS_META_FIELDCOUNT) = 0;
     VI(metapage + POS_META_PRIMARYCOUNT) = 0;
     VI(metapage + POS_META_FOREIGNS) = 0;
+    VI(metapage + POS_META_LASTPAGE) = 0;
     ret->pmgr.markDirty(bufindex);
     ret->removeIndices();
     *handle = ret;
@@ -169,18 +170,14 @@ KontoResult KontoTableFile::insertEntry(KontoRPos* pos) {
     int metapid;
     KontoPage meta = pmgr.getPage(fileID, 0, metapid);
     KontoRPos rec;
-    bool found = false;
-    for (int i=pageCount-1;i>=1;i--) {
-        int rc = VI(meta + POS_PAGES + 4*(i-1));
-        if ((rc+1) * recordSize >= PAGE_SIZE) continue;
-        rec = KontoRPos(i, rc);
-        VI(meta + POS_PAGES + 4*(i-1)) = rc+1;
-        found = true; break;
-    }
+    bool found = (1 + VI(meta + POS_META_LASTPAGE)) * recordSize <= PAGE_SIZE;
     if (!found) {
         meta[POS_META_PAGECOUNT] = ++pageCount;
         rec = KontoRPos(pageCount-1, 0);
-        VI(meta + POS_PAGES + 4*(pageCount-2)) = 1;
+        VI(meta + POS_META_LASTPAGE) = 1;
+    } else {
+        rec = KontoRPos(pageCount-1, VI(meta+POS_META_LASTPAGE));
+        VI(meta+POS_META_LASTPAGE)++;
     }
     VI(meta + POS_META_RECORDCOUNT) = ++recordCount;
     VI(meta + POS_META_EXISTCOUNT)++;
@@ -198,8 +195,6 @@ KontoResult KontoTableFile::insertEntry(KontoRPos* pos) {
 KontoResult KontoTableFile::deleteEntry(KontoRPos& pos) {
     int metapid;
     KontoPage meta = pmgr.getPage(fileID, 0, metapid);
-    if (pos.page>=VI(meta + POS_META_PAGECOUNT)) return KR_PAGE_TOO_GREAT;
-    if (pos.id>=VI(meta + POS_PAGES+4*(pos.page-1))) return KR_RECORD_INDEX_TOO_GREAT;
     int wrpid;
     KontoPage wr = pmgr.getPage(fileID, pos.page, wrpid);
     char* ptr = wr + pos.id * recordSize;
@@ -208,15 +203,7 @@ KontoResult KontoTableFile::deleteEntry(KontoRPos& pos) {
     return KR_OK;
 }
 
-KontoResult KontoTableFile::checkPosition(KontoRPos& pos) {
-    int metapid;
-    KontoPage meta = pmgr.getPage(fileID, 0, metapid);
-    if (pos.page>=VI(meta + POS_META_PAGECOUNT)) return KR_PAGE_TOO_GREAT;
-    if (pos.id>=VI(meta + POS_PAGES+4*(pos.page-1))) return KR_RECORD_INDEX_TOO_GREAT;
-    return KR_OK;
-}
-
-char* KontoTableFile::getDataPointer(KontoRPos& pos, KontoKeyIndex key, bool write = false){
+char* KontoTableFile::getDataPointer(const KontoRPos& pos, KontoKeyIndex key, bool write = false){
     int wrpid;
     KontoPage wr = pmgr.getPage(fileID, pos.page, wrpid);
     char* ptr = wr + pos.id * recordSize;
@@ -225,7 +212,7 @@ char* KontoTableFile::getDataPointer(KontoRPos& pos, KontoKeyIndex key, bool wri
     return ptr;
 }
 
-char* KontoTableFile::getRecordPointer(KontoRPos& pos, bool write) {
+char* KontoTableFile::getRecordPointer(const KontoRPos& pos, bool write) {
     int wrpid;
     KontoPage wr = pmgr.getPage(fileID, pos.page, wrpid);
     char* ptr = wr + pos.id * recordSize;
@@ -235,7 +222,7 @@ char* KontoTableFile::getRecordPointer(KontoRPos& pos, bool write) {
 
 uint KontoTableFile::getRecordSize() {return recordSize;}
 
-KontoResult KontoTableFile::getDataCopied(KontoRPos& pos, char* dest) {
+KontoResult KontoTableFile::getDataCopied(const KontoRPos& pos, char* dest) {
     int wrpid;
     KontoPage wr = pmgr.getPage(fileID, pos.page, wrpid);
     char* ptr = wr + pos.id * recordSize;
@@ -302,43 +289,49 @@ KontoResult KontoTableFile::allEntries(KontoQRes& out) {
     int metapid;
     KontoPage meta = pmgr.getPage(fileID, 0, metapid);
     KontoRPos rec;
-    for (int i=1;i<pageCount;i++) {
-        int rc = VI(meta + POS_PAGES + 4*(i-1));
-        for (int j=0;j<rc;j++) 
+    for (int i=1;i<pageCount-1;i++) {
+        int cnt = PAGE_SIZE / recordSize;
+        for (int j=0;j<cnt;j++) 
             out.push(KontoRPos(i, j));
     }
+    int last = pageCount - 1;
+    int cnt = VI(meta + POS_META_LASTPAGE);
+    for (int j=0;j<cnt;j++) out.push(KontoRPos(last, j));
     return KR_OK;
 }
 
-KontoResult KontoTableFile::queryEntryInt(KontoQRes& from, KontoKeyIndex key, function<bool(int)> cond, KontoQRes& out) {
+KontoResult KontoTableFile::queryEntryInt(const KontoQRes& from, KontoKeyIndex key, function<bool(int)> cond, KontoQRes& out) {
     if (keys[key].type!=KT_INT) return KR_TYPE_NOT_MATCHING; 
-    KontoQRes result;
-    for (auto item : from.items) {
+    KontoQRes result; 
+    for (auto& item : from.items) {
         char* ptr = getDataPointer(item, key, false);
         if (cond(*((int*)ptr))) result.push(item);
     }
+    result.sorted = true;
     out = result;
     return KR_OK;
 }
 
-KontoResult KontoTableFile::queryEntryFloat(KontoQRes& from, KontoKeyIndex key, function<bool(double)> cond, KontoQRes& out) {
+KontoResult KontoTableFile::queryEntryFloat(const KontoQRes& from, KontoKeyIndex key, function<bool(double)> cond, KontoQRes& out) {
     if (keys[key].type!=KT_FLOAT) return KR_TYPE_NOT_MATCHING; 
     KontoQRes result;
-    for (auto item : from.items) {
+    for (auto& item : from.items) {
         char* ptr = getDataPointer(item, key, false);
         if (cond(*((double*)ptr))) result.push(item);
     }
+    result.sorted = true;
     out = result;
     return KR_OK;
 }
 
-KontoResult KontoTableFile::queryEntryString(KontoQRes& from, KontoKeyIndex key, function<bool(char*)> cond, KontoQRes& out) {
+KontoResult KontoTableFile::queryEntryString(const KontoQRes& from, KontoKeyIndex key, function<bool(const char*)> cond, KontoQRes& out) {
     if (keys[key].type!=KT_STRING) return KR_TYPE_NOT_MATCHING; 
     KontoQRes result;
-    for (auto item : from.items) {
+    for (auto& item : from.items) {
         char* ptr = getDataPointer(item, key, false);
         if (cond((char*)ptr)) result.push(item);
     }
+    result.sorted = true;
     out = result;
     return KR_OK;
 }
@@ -355,12 +348,15 @@ KontoResult KontoTableFile::getKeyIndex(const char* key, KontoKeyIndex& out) {
 
 KontoQueryResult::KontoQueryResult(const KontoQRes& r) {
     clear();
+    sorted = r.sorted;
     for (auto item : r.items) items.push_back(item);
 }
 
-KontoQueryResult KontoQueryResult::join(const KontoQueryResult& b) {
+KontoQueryResult KontoQueryResult::join(KontoQueryResult& b) {
     KontoQRes ret;
     int sa = size(), sb = b.size();
+    if (!sorted) sort();
+    if (!b.sorted) b.sort();
     int i = 0, j = 0;
     while (i<sa || j<sb) {
         if (i<sa && j<sb && items[i]==b.items[j]) {
@@ -371,11 +367,14 @@ KontoQueryResult KontoQueryResult::join(const KontoQueryResult& b) {
             ret.push(b.items[j]); j++;
         }
     }
+    ret.sorted = true;
     return ret;
 }
 
-KontoQueryResult KontoQueryResult::meet(const KontoQueryResult& b) {
+KontoQueryResult KontoQueryResult::meet(KontoQueryResult& b) {
     KontoQRes ret;
+    if (!sorted) sort();
+    if (!b.sorted) b.sort();
     int sa = size(), sb = b.size();
     int i = 0, j = 0;
     while (i<sa || j<sb) {
@@ -387,12 +386,15 @@ KontoQueryResult KontoQueryResult::meet(const KontoQueryResult& b) {
             j++;
         }
     }
+    ret.sorted = true;
     return ret;
 }
 
-KontoQueryResult KontoQueryResult::substract(const KontoQueryResult& b) {
+KontoQueryResult KontoQueryResult::substract(KontoQueryResult& b) {
     KontoQRes ret;
     int sa = size(), sb = b.size();
+    if (!sorted) sort();
+    if (!b.sorted) b.sort();
     int i = 0, j = 0;
     while (i<sa || j<sb) {
         if (i<sa && j<sb && items[i]==b.items[j]) {
@@ -403,6 +405,7 @@ KontoQueryResult KontoQueryResult::substract(const KontoQueryResult& b) {
             j++;
         }
     }
+    ret.sorted = true;
     return ret;
 }
 
@@ -565,7 +568,7 @@ void KontoTableFile::printRecord(char* record) {
     cout << "]";
 }
 
-void KontoTableFile::printRecord(KontoRPos& pos, bool printPos) {
+void KontoTableFile::printRecord(const KontoRPos& pos, bool printPos) {
     char* data = new char[getRecordSize()];
     getDataCopied(pos, data);
     if (printPos) {
@@ -920,7 +923,7 @@ void KontoTableFile::drop() {
 KontoResult KontoTableFile::insert(char* record) {
     KontoRPos pos; 
     if (hasPrimaryKey()) {
-        
+        if (primaryIndex->queryE(record, pos) == KR_OK) return KR_PRIMARY_REPETITION;
     }
     insertEntry(record, &pos);
     insertIndex(pos);
@@ -949,6 +952,49 @@ void KontoTableFile::debugIndex(const vector<uint>& cols) {
     index->debugPrint();
 }
 
+void KontoTableFile::printTableHeader(bool pos) {
+    for (auto key: keys) {
+        int s;
+        if (key.type == KT_INT) s = 7;
+        else if (key.type == KT_FLOAT) s = 9;
+        else if (key.type == KT_STRING) s = key.size > 20 ? 20 : (key.size-1);
+        else s = 8;
+        cout << "|" << SS(s, key.name, true);
+    }
+    cout << "|" << endl;
+}
+
+void KontoTableFile::printTableEntry(const KontoRPos& item, bool pos) {
+    char* data = new char[getRecordSize()];
+    if (pos) {
+        cout << "|" << SS(2, std::to_string(item.page), true);
+        cout << "|" << SS(4, std::to_string(item.id), true);
+    }
+    getDataCopied(item, data);
+    for (int i=0;i<keys.size();i++) {
+        cout << "|";
+        switch (keys[i].type) {
+            case KT_INT: {
+                int vi = *((int*)(data + keys[i].position));
+                cout << SS(7, std::to_string(vi), true); break;
+            }
+            case KT_FLOAT: {
+                double vd = *((double*)(data + keys[i].position));
+                cout << SS(9, std::to_string(vd), true); break;
+            }
+            case KT_STRING: {
+                char* vs = (char*)(data+keys[i].position);
+                cout << SS(keys[i].size > 20 ? 20 : (keys[i].size-1), vs, true); break;
+            }
+            default: {
+                cout << SS(8, "unknown"); break;
+            }
+        }
+    }
+    cout << "|" << endl;
+    delete[] data;
+}
+
 void KontoTableFile::printTable(bool meta, bool pos) {
     cout << "[TABLE " << filename << "]\n";
     if (meta) {
@@ -960,44 +1006,147 @@ void KontoTableFile::printTable(bool meta, bool pos) {
         cout << "|" << SS(2, "P", true); 
         cout << "|" << SS(4, "I", true);
     }
-    vector<uint> sz; sz.clear();
-    for (auto key: keys) {
-        if (key.type == KT_INT) sz.push_back(7);
-        else if (key.type == KT_FLOAT) sz.push_back(9);
-        else if (key.type == KT_STRING) sz.push_back(key.size > 20 ? 20 : (key.size-1));
-        else sz.push_back(8);
-        cout << "|" << SS(sz[sz.size()-1], key.name, true);
-    }
-    cout << "|" << endl;
+    printTableHeader(pos);
     KontoQRes q; allEntries(q); 
-    char* data = new char[getRecordSize()];
-    for (auto item : q.items) {
-        if (pos) {
-            cout << "|" << SS(2, std::to_string(item.page), true);
-            cout << "|" << SS(4, std::to_string(item.id), true);
-        }
-        getDataCopied(item, data);
-        for (int i=0;i<keys.size();i++) {
-            cout << "|";
-            switch (keys[i].type) {
-                case KT_INT: {
-                    int vi = *((int*)(data + keys[i].position));
-                    cout << SS(sz[i], std::to_string(vi), true); break;
+    for (auto& item : q.items) {
+        printTableEntry(item, pos);
+    }
+}
+
+void KontoTableFile::printTable(const KontoQRes& list, bool pos) {
+    cout << "[TABLE " << filename << "]\n";
+    cout << "     querycount=" << list.size() << endl;
+    printTableHeader(pos);
+    for (auto& item: list.items) {
+        printTableEntry(item, pos);
+    }
+}
+
+bool _kontoRPosComp(const KontoRPos& a, const KontoRPos& b) {
+    return (a.page < b.page || (a.page == b.page && a.id < b.id));
+}
+
+void KontoQueryResult::sort() {
+    std::sort(items.begin(), items.end(), _kontoRPosComp);
+    sorted = true;
+}
+
+KontoQRes KontoQueryResult::append(const KontoQRes& b) {
+    KontoQRes ret = KontoQRes(*this);
+    for (auto& item : b.items) 
+        ret.push(item);
+    ret.sorted = false;
+    return ret;
+}
+
+void KontoTableFile::queryEntryInt(const KontoQRes& q, KontoKeyIndex key, OperatorType op, int vi, KontoQRes& ret) {
+    switch (op) {
+        case OP_EQUAL:        queryEntryInt(q, key, [vi](int p){return p==vi;}, ret); break;
+        case OP_NOT_EQUAL:    queryEntryInt(q, key, [vi](int p){return p!=vi;}, ret); break;
+        case OP_LESS:         queryEntryInt(q, key, [vi](int p){return p< vi;}, ret); break;
+        case OP_LESS_EQUAL   :queryEntryInt(q, key, [vi](int p){return p<=vi;}, ret); break;
+        case OP_GREATER      :queryEntryInt(q, key, [vi](int p){return p> vi;}, ret); break;
+        case OP_GREATER_EQUAL:queryEntryInt(q, key, [vi](int p){return p>=vi;}, ret); break;
+    } 
+}
+
+void KontoTableFile::queryEntryInt(const KontoQRes& q, KontoKeyIndex key, OperatorType op, int vl, int vr, KontoQRes& ret) {
+    switch (op) {
+        case OP_LCRC: queryEntryInt(q, key, [vl, vr](int p){return p>=vl && p<=vr;}, ret); break;
+        case OP_LCRO: queryEntryInt(q, key, [vl, vr](int p){return p>=vl && p< vr;}, ret); break;
+        case OP_LORC: queryEntryInt(q, key, [vl, vr](int p){return p> vl && p<=vr;}, ret); break;
+        case OP_LORO: queryEntryInt(q, key, [vl, vr](int p){return p> vl && p< vr;}, ret); break;
+    } 
+}
+
+void KontoTableFile::queryEntryFloat(const KontoQRes& q, KontoKeyIndex key, OperatorType op, double vd, KontoQRes& ret) {
+    switch (op) {
+        case OP_EQUAL:        queryEntryFloat(q, key, [vd](double p){return p==vd;}, ret); break;
+        case OP_NOT_EQUAL:    queryEntryFloat(q, key, [vd](double p){return p!=vd;}, ret); break;
+        case OP_LESS:         queryEntryFloat(q, key, [vd](double p){return p< vd;}, ret); break;
+        case OP_LESS_EQUAL   :queryEntryFloat(q, key, [vd](double p){return p<=vd;}, ret); break;
+        case OP_GREATER      :queryEntryFloat(q, key, [vd](double p){return p> vd;}, ret); break;
+        case OP_GREATER_EQUAL:queryEntryFloat(q, key, [vd](double p){return p>=vd;}, ret); break;
+    } 
+}
+
+void KontoTableFile::queryEntryFloat(const KontoQRes& q, KontoKeyIndex key, OperatorType op, double vl, double vr, KontoQRes& ret) {
+    switch (op) {
+        case OP_LCRC: queryEntryFloat(q, key, [vl, vr](double p){return p>=vl && p<=vr;}, ret); break;
+        case OP_LCRO: queryEntryFloat(q, key, [vl, vr](double p){return p>=vl && p< vr;}, ret); break;
+        case OP_LORC: queryEntryFloat(q, key, [vl, vr](double p){return p> vl && p<=vr;}, ret); break;
+        case OP_LORO: queryEntryFloat(q, key, [vl, vr](double p){return p> vl && p< vr;}, ret); break;
+    } 
+}
+
+void KontoTableFile::queryEntryString(const KontoQRes& q, KontoKeyIndex key, OperatorType op, const char* vs, KontoQRes& ret) {
+    switch (op) {
+        case OP_EQUAL:        queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)==0;}, ret); break;
+        case OP_NOT_EQUAL:    queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)!=0;}, ret); break;
+        case OP_LESS:         queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)< 0;}, ret); break;
+        case OP_LESS_EQUAL   :queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)<=0;}, ret); break;
+        case OP_GREATER      :queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)> 0;}, ret); break;
+        case OP_GREATER_EQUAL:queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)>=0;}, ret); break;
+    } 
+}
+
+void KontoTableFile::queryEntryString(const KontoQRes& q, KontoKeyIndex key, OperatorType op, const char* vl, const char* vr, KontoQRes& ret) {
+    switch (op) {
+        case OP_LCRC: queryEntryString(q, key, [vl, vr](const char* p){return strcmp(p, vl)>=0 && strcmp(p, vr)<=0;}, ret); break;
+        case OP_LCRO: queryEntryString(q, key, [vl, vr](const char* p){return strcmp(p, vl)>=0 && strcmp(p, vr)< 0;}, ret); break;
+        case OP_LORC: queryEntryString(q, key, [vl, vr](const char* p){return strcmp(p, vl)> 0 && strcmp(p, vr)<=0;}, ret); break;
+        case OP_LORO: queryEntryString(q, key, [vl, vr](const char* p){return strcmp(p, vl)> 0 && strcmp(p, vr)< 0;}, ret); break;
+    }
+}
+
+void KontoTableFile::queryCompare(const KontoQRes& from, 
+        KontoKeyIndex k1, KontoKeyIndex k2, 
+        OperatorType op, KontoQRes& out)
+{
+    KontoQRes result; 
+    KontoKeyType type = keys[k1].type;
+    uint pos1 = keys[k1].position, pos2 = keys[k2].position;
+    for (auto& item : from.items) {
+        char* ptr = getRecordPointer(item, false);
+        switch (type) {
+            case KT_INT: {
+                int v1 = *(int*)(ptr+pos1), v2 = *(int*)(ptr+pos2);
+                switch (op) {
+                    case OP_EQUAL:        if (v1==v2) result.push(item); break;
+                    case OP_NOT_EQUAL:    if (v1!=v2) result.push(item); break;
+                    case OP_LESS:         if (v1< v2) result.push(item); break;
+                    case OP_LESS_EQUAL   :if (v1<=v2) result.push(item); break;
+                    case OP_GREATER      :if (v1> v2) result.push(item); break;
+                    case OP_GREATER_EQUAL:if (v1>=v2) result.push(item); break;
                 }
-                case KT_FLOAT: {
-                    double vd = *((double*)(data + keys[i].position));
-                    cout << SS(sz[i], std::to_string(vd), true); break;
+                break;
+            }
+            case KT_FLOAT: {
+                double v1 = *(double*)(ptr+pos1), v2 = *(double*)(ptr+pos2);
+                switch (op) {
+                    case OP_EQUAL:        if (v1==v2) result.push(item); break;
+                    case OP_NOT_EQUAL:    if (v1!=v2) result.push(item); break;
+                    case OP_LESS:         if (v1< v2) result.push(item); break;
+                    case OP_LESS_EQUAL   :if (v1<=v2) result.push(item); break;
+                    case OP_GREATER      :if (v1> v2) result.push(item); break;
+                    case OP_GREATER_EQUAL:if (v1>=v2) result.push(item); break;
                 }
-                case KT_STRING: {
-                    char* vs = (char*)(data+keys[i].position);
-                    cout << SS(sz[i], vs, true); break;
+                break;
+            }
+            case KT_STRING: {
+                const char* v1=ptr+pos1, *v2 = ptr+pos2;
+                switch (op) {
+                    case OP_EQUAL:        if (strcmp(v1,v2)==0) result.push(item); break;
+                    case OP_NOT_EQUAL:    if (strcmp(v1,v2)!=0) result.push(item); break;
+                    case OP_LESS:         if (strcmp(v1,v2)< 0) result.push(item); break;
+                    case OP_LESS_EQUAL   :if (strcmp(v1,v2)<=0) result.push(item); break;
+                    case OP_GREATER      :if (strcmp(v1,v2)> 0) result.push(item); break;
+                    case OP_GREATER_EQUAL:if (strcmp(v1,v2)>=0) result.push(item); break;
                 }
-                default: {
-                    cout << SS(sz[i], "unknown"); break;
-                }
+                break;
             }
         }
-        cout << "|" << endl;
     }
-    delete[] data;
+    result.sorted = from.sorted;
+    out = result;
 }

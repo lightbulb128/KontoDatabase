@@ -140,3 +140,11 @@ void save_lines(string dir, string file, const vector<string>& lines) {
     }
     fout.close();
 }
+
+vector<string> single_string_vector(string str){
+    vector<string> ret; ret.clear(); ret.push_back(str); return ret;
+}
+
+vector<uint> single_uint_vector(uint num) {
+    vector<uint> ret; ret.clear(); ret.push_back(num); return ret;
+}

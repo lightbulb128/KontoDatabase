@@ -20,6 +20,22 @@ struct KontoIndexDesc {
     vector<uint> cols;
 };
 
+enum WhereType {
+    WT_CONST,
+    WT_INNER,
+    WT_CROSS
+};
+
+struct KontoWhere {
+    WhereType type;
+    KontoKeyType keytype;
+    OperatorType op;
+    Token rvalue;
+    Token lvalue;
+    string ltable, rtable;
+    uint lid, rid;
+};
+
 class KontoTerminal {
 private:
     string currentDatabase;
@@ -55,10 +71,20 @@ public:
     void debugIndex();
     void debugTable(string tbname);
     void debugPrimary(string tbname);
+    void deleteStatement(string tbname, const vector<KontoWhere>& wheres);
+    KontoQRes queryWhere(const KontoWhere& where);
+    KontoQRes queryWhereWithin(const KontoQRes& prev, const KontoWhere& where);
+    void queryWheres(const vector<KontoWhere>& wheres, KontoQRes& out); // 约定wheres中只有一个表
+    void queryWheres(const vector<KontoWhere>& wheres, vector<string>& tables, vector<KontoQRes>& results); // 忽略跨表查询
+    void debugFromStatement(string tbname, const vector<KontoWhere>& wheres);
 
     ProcessStatementResult err(string message);
     void main();
     ProcessStatementResult processStatement();
+    uint getColumnIndex(string table, string col, KontoKeyType& type);
+    ProcessStatementResult processWhereTerm(const vector<string>& tables, KontoWhere& out);
+    ProcessStatementResult processWheres(const string& table, vector<KontoWhere>& out);
+    ProcessStatementResult processWheres(const vector<string>& tables, vector<KontoWhere>& out);
     ProcessStatementResult processInsert(string tbname);
 };
 

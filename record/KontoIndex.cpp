@@ -522,6 +522,27 @@ KontoResult KontoIndex::queryL(char* record, KontoRPos& out) {
     return KR_OK;
 }
 
+KontoResult KontoIndex::queryE(char* record, KontoRPos& out) {
+    KontoIPos query;
+    KontoResult qres = queryIpos(record, query, true);
+    if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
+    while (true) {
+        if (!isDeleted(query)) break;
+        qres = getPrevious(query); 
+        if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
+    }
+    char* buffer = new char[indexSize];
+    int pageBufIndex;
+    KontoPage page = pmgr.getPage(fileID, query.page, pageBufIndex);
+    page += POS_PAGE_DATA + query.id * (12 + indexSize) + 12;
+    memcpy(buffer, page, indexSize);
+    if (compare(record, page) == 0) {
+        KontoRPos rpos = getRPos(query);
+        out = rpos;
+        return KR_OK;
+    } else return KR_NOT_FOUND;
+}
+
 KontoResult KontoIndex::getNext(KontoIPos& pos, KontoIPos& out) {
     //cout << "getnext " << pos.page << " " << pos.id << endl; 
     int pageID = pos.page, id = pos.id;
@@ -755,6 +776,7 @@ KontoResult KontoIndex::queryInterval(char* lower, char* upper, KontoQRes& out,
         KontoIPos temp; getNext(iterator, temp);
         iterator = temp;
     }
+    ret.sort();
     out = ret;
     return KR_OK;
 }

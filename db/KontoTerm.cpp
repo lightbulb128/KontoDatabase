@@ -429,7 +429,33 @@ ProcessStatementResult KontoTerminal::processStatement() {
                 ASSERTERR(cur, TK_IDENTIFIER, "debug primary: expect identifier.");
                 debugPrimary(cur.identifier);
                 return PSR_OK;
+            } else if (cur.tokenKind == TK_FROM) {
+                if (currentDatabase == "") {PT(1, "Error: Not using a database!");return PSR_ERR;}
+                cur = lexer.nextToken();
+                ASSERTERR(cur, TK_IDENTIFIER, "debug from: Expect identifier");
+                string table = cur.identifier;
+                cur = lexer.nextToken();
+                ASSERTERR(cur, TK_WHERE, "debug from: Expect keyword WHERE.");
+                vector<KontoWhere> wheres; 
+                ProcessStatementResult psr = processWheres(table, wheres);
+                if (psr == PSR_OK) debugFromStatement(table, wheres);
+                return psr;
             }
+        }
+
+        case TK_DELETE: {
+            if (currentDatabase == "") {PT(1, "Error: Not using a database!");return PSR_ERR;}
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_FROM, "delete: Expect keyword FROM.");
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_IDENTIFIER, "delete: Expect identifier");
+            string table = cur.identifier;
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_WHERE, "delete: Expect keyword WHERE.");
+            vector<KontoWhere> wheres; 
+            ProcessStatementResult psr = processWheres(table, wheres);
+            if (psr == PSR_OK) deleteStatement(table, wheres);
+            return psr;
         }
 
         case TK_DROP: {
@@ -912,5 +938,397 @@ void KontoTerminal::debugPrimary(string tbname) {
     KontoIndex* index = handle->getPrimaryIndex();
     if (index==nullptr) {PT(1,"Error: This table has no primary index."); return;};
     index->debugPrint();
+    handle->close();
+}
+
+uint KontoTerminal::getColumnIndex(string table, string col, KontoKeyType& type) {
+    if (!hasTable(table)) return -1;
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    uint ret;
+    KontoResult res = handle->getKeyIndex(col.c_str(), ret);
+    handle->close();
+    if (res == KR_OK) return ret;
+    else return -1;
+} 
+
+Token getDefaultValueToken(KontoKeyType type) {
+    switch (type) {
+        case KT_INT: return Token(TK_INT_VALUE, DEFAULT_INT_VALUE);
+        case KT_FLOAT: return Token(TK_FLOAT_VALUE, DEFAULT_FLOAT_VALUE);
+        case KT_STRING: return Token(TK_STRING_VALUE, DEFAULT_STRING_VALUE);
+    }
+    return Token();
+}
+
+ProcessStatementResult KontoTerminal::processWhereTerm(const vector<string>& tables, KontoWhere& out) {
+    Token cur = lexer.nextToken();
+    ASSERTERR(cur, TK_IDENTIFIER, "where: Expect identifier");
+    Token peek = lexer.peek();
+    out = KontoWhere();
+    KontoKeyType keytype;
+    if (peek.tokenKind != TK_DOT) {
+        bool flag = false;
+        for (auto& table : tables) {
+            int res = getColumnIndex(table, cur.identifier, keytype);
+            if (res != -1) {
+                out.ltable = table; 
+                out.lid = res;
+                out.keytype = keytype;
+                flag = true;
+                break;
+            }
+        }
+        if (!flag) return err("where: No column called " + cur.identifier);
+    } else {
+        lexer.nextToken();
+        int res = getColumnIndex(cur.identifier, peek.identifier, keytype);
+        if (res==-1) return err("where: No column called " + peek.identifier + " in " + cur.identifier);
+        out.ltable = cur.identifier;
+        out.lid = res;
+        out.keytype = keytype;
+    }
+    cur = lexer.nextToken();
+    if (cur.tokenKind == TK_IS) {
+        cur = lexer.nextToken();
+        if (cur.tokenKind == TK_NULL) {
+            out.type = WT_CONST; 
+            out.rvalue = getDefaultValueToken(out.keytype);
+            out.op = OP_EQUAL;
+            return PSR_OK;
+        } else if (cur.tokenKind == TK_NOT) {
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_NULL, "where - not: Expect keyword NULL");
+            out.type = WT_CONST; 
+            out.rvalue = getDefaultValueToken(out.keytype);
+            out.op = OP_NOT_EQUAL;
+            return PSR_OK;
+        } else {
+            return err("where - is: expect keyword NOT or NULL");
+        }
+    };
+    // cur is operator
+    switch (cur.tokenKind) {
+        case TK_ASSIGN: out.op = OP_EQUAL; break;
+        case TK_NOT_EQUAL: out.op = OP_NOT_EQUAL; break;
+        case TK_LESS: out.op = OP_LESS; break;
+        case TK_LESS_EQUAL: out.op = OP_LESS_EQUAL; break;
+        case TK_GREATER: out.op = OP_GREATER; break;
+        case TK_GREATER_EQUAL: out.op = OP_GREATER_EQUAL; break;
+        default: return err("where: operator not recognized.");
+    }
+    cur = lexer.nextToken();
+    if (cur.tokenKind == TK_IDENTIFIER) {
+        peek = lexer.peek();
+        if (peek.tokenKind != TK_DOT) {
+            bool flag = false;
+            for (auto& table : tables) {
+                int res = getColumnIndex(table, cur.identifier, keytype);
+                if (res != -1) {
+                    out.rtable = table; 
+                    out.rid = res;
+                    if (keytype != out.keytype) return err("where: lhs and rhs type does not match.");
+                    flag = true;
+                    break;
+                }
+            }
+            if (!flag) return err("where: No column called " + cur.identifier);
+        } else {
+            lexer.nextToken();
+            int res = getColumnIndex(cur.identifier, peek.identifier, keytype);
+            if (res==-1) return err("where: No column called " + peek.identifier + " in " + cur.identifier);
+            out.rtable = cur.identifier;
+            out.rid = res;
+            if (keytype != out.keytype) return err("where: lhs and rhs type does not match.");
+        }
+        if (out.ltable == out.rtable) out.type = WT_INNER;
+        else out.type = WT_CROSS;
+        return PSR_OK;
+    } else {
+        if (out.keytype == KT_INT) {
+            ASSERTERR(cur, TK_INT_VALUE, "where: rvalue should be int.");
+        } else if (out.keytype == KT_FLOAT) {
+            ASSERTERR(cur, TK_FLOAT_VALUE, "where: rvalue should be float.");
+        } else if (out.keytype == KT_STRING) {
+            ASSERTERR(cur, TK_STRING_VALUE, "where: rvalue should be string.");
+        }
+        out.rvalue = cur;
+        out.type = WT_CONST;
+        return PSR_OK;
+    }
+}
+
+ProcessStatementResult KontoTerminal::processWheres(const string& table, vector<KontoWhere>& out) {
+    vector<string> str; str.clear(); str.push_back(table);
+    return processWheres(str, out);
+}
+
+/*bool _kontoWhereComp(const KontoWhere& a, const KontoWhere& b) {
+    if (a.type != WT_CROSS && b.type == WT_CROSS) return true;
+    if (a.type == WT_CROSS) return false;
+    if (a.ltable < b.ltable) return true;
+
+}*/
+
+ProcessStatementResult KontoTerminal::processWheres(const vector<string>& tables, vector<KontoWhere>& out) {
+    out.clear();
+    while (true) {
+        KontoWhere term;
+        ProcessStatementResult psr = processWhereTerm(tables, term);
+        if (psr != PSR_OK) return psr;
+        out.push_back(term);
+        if (lexer.peek().tokenKind == TK_AND) {
+            lexer.nextToken(); continue;
+        }
+        else break;
+    }
+    for (int i=0;i<out.size();i++) {
+        if (out[i].type != WT_CONST) continue;
+        if (out[i].op == OP_EQUAL || out[i].op == OP_NOT_EQUAL) continue;
+        for (int j=i+1;j<out.size();j++) {
+            if (out[j].type != WT_CONST) continue;
+            if (out[j].ltable != out[i].ltable) continue;
+            if (out[j].lid != out[i].lid) continue;
+            if (out[j].op == OP_EQUAL || out[j].op == OP_NOT_EQUAL) continue;
+            if (out[i].op == OP_GREATER && out[j].op == OP_LESS) {
+                out[i].op = OP_LORO; out[i].lvalue = out[i].rvalue; out[i].rvalue = out[j].rvalue; out.erase(out.begin() + j);
+            }
+            if (out[i].op == OP_GREATER && out[j].op == OP_LESS_EQUAL) {
+                out[i].op = OP_LORC; out[i].lvalue = out[i].rvalue; out[i].rvalue = out[j].rvalue; out.erase(out.begin() + j);
+            }
+            if (out[i].op == OP_GREATER_EQUAL && out[j].op == OP_LESS) {
+                out[i].op = OP_LCRO; out[i].lvalue = out[i].rvalue; out[i].rvalue = out[j].rvalue; out.erase(out.begin() + j);
+            }
+            if (out[i].op == OP_GREATER_EQUAL && out[j].op == OP_LESS_EQUAL) {
+                out[i].op = OP_LCRC; out[i].lvalue = out[i].rvalue; out[i].rvalue = out[j].rvalue; out.erase(out.begin() + j);
+            }
+            if (out[i].op == OP_LESS && out[j].op == OP_GREATER) {
+                out[i].op = OP_LORO; out[i].lvalue = out[j].rvalue; out.erase(out.begin() + j);
+            }
+            if (out[i].op == OP_LESS_EQUAL && out[j].op == OP_GREATER) {
+                out[i].op = OP_LORC; out[i].lvalue = out[j].rvalue; out.erase(out.begin() + j);
+            }
+            if (out[i].op == OP_LESS && out[j].op == OP_GREATER_EQUAL) {
+                out[i].op = OP_LCRO; out[i].lvalue = out[j].rvalue; out.erase(out.begin() + j);
+            }
+            if (out[i].op == OP_LESS_EQUAL && out[j].op == OP_GREATER_EQUAL) {
+                out[i].op = OP_LCRC; out[i].lvalue = out[j].rvalue; out.erase(out.begin() + j);
+            }
+        }
+    }
+    return PSR_OK;
+}
+
+KontoQRes KontoTerminal::queryWhere(const KontoWhere& where) {
+    assert(where.type != WT_CROSS);
+    KontoTableFile* handle; 
+    KontoQRes ret, tmp;
+    KontoTableFile::loadFile(currentDatabase + "/" + where.ltable, &handle);
+    if (where.type != WT_INNER) {
+        vector<uint> list = single_uint_vector(where.lid);
+        KontoIndex* index = handle->getIndex(list);
+        if (index != nullptr) {
+            char* buffer = new char[handle->getRecordSize()];
+            char* lbuffer = new char[handle->getRecordSize()];
+            switch (where.keytype) {
+                case KT_INT: 
+                    handle->setEntryInt(buffer, where.lid, where.rvalue.value); 
+                    handle->setEntryInt(lbuffer, where.lid, where.lvalue.value);
+                    break;
+                case KT_FLOAT: 
+                    handle->setEntryFloat(buffer, where.lid, where.rvalue.value);
+                    handle->setEntryFloat(lbuffer, where.lid, where.lvalue.doubleValue);
+                    break;
+                case KT_STRING:
+                    handle->setEntryString(buffer, where.lid, where.rvalue.identifier.c_str());
+                    handle->setEntryString(lbuffer, where.lid, where.lvalue.identifier.c_str());
+                    break;
+                default:
+                    assert(false);
+                    break;
+            }
+            switch (where.op) {
+                case OP_EQUAL: 
+                    index->queryInterval(buffer, buffer, ret, true, true); break;
+                case OP_NOT_EQUAL:
+                    index->queryInterval(buffer, nullptr, ret, false, true); 
+                    index->queryInterval(nullptr, buffer, tmp, true, false);
+                    ret = tmp.append(ret); break;
+                case OP_LESS:
+                    index->queryInterval(nullptr, buffer, ret, true, false); break;
+                case OP_LESS_EQUAL:
+                    index->queryInterval(nullptr, buffer, ret, true, true); break;
+                case OP_GREATER:
+                    index->queryInterval(buffer, nullptr, ret, false, true); break;
+                case OP_GREATER_EQUAL:
+                    index->queryInterval(buffer, nullptr, ret, true, true); break;
+                case OP_LCRC:
+                    index->queryInterval(lbuffer, buffer, ret, true, true); break;
+                case OP_LCRO:
+                    index->queryInterval(lbuffer, buffer, ret, true, false); break;
+                case OP_LORC:
+                    index->queryInterval(lbuffer, buffer, ret, false, true); break;
+                case OP_LORO:
+                    index->queryInterval(lbuffer, buffer, ret, false, false); break;
+            }
+            delete[] buffer;
+            delete[] lbuffer;
+        } else {
+            KontoQRes q; handle->allEntries(q);
+            if (where.op < OP_LCRC) {
+                switch (where.keytype) {
+                    case KT_INT:
+                        int vi = where.rvalue.value;
+                        handle->queryEntryInt(q, where.lid, where.op, vi, ret);
+                        break;
+                    case KT_FLOAT:
+                        double vd = where.rvalue.doubleValue;
+                        handle->queryEntryFloat(q, where.lid, where.op, vd, ret);
+                        break;
+                    case KT_STRING:
+                        const char* vs = where.rvalue.identifier.c_str();
+                        handle->queryEntryString(q, where.lid, where.op, vs, ret);
+                        break;
+                    default:
+                        assert(false);
+                }
+            } else {
+                switch (where.keytype) {
+                    case KT_INT:
+                        int vir = where.rvalue.value, vil = where.lvalue.value;
+                        handle->queryEntryInt(q, where.lid, where.op, vil, vir, ret);
+                        break;
+                    case KT_FLOAT:
+                        double vdr = where.rvalue.doubleValue, vdl = where.lvalue.doubleValue;
+                        handle->queryEntryFloat(q, where.lid, where.op, vdl, vdr, ret);
+                        break;
+                    case KT_STRING:
+                        const char* vsr = where.rvalue.identifier.c_str(), *vsl = where.lvalue.identifier.c_str();
+                        handle->queryEntryString(q, where.lid, where.op, vsl, vsr, ret);
+                        break;
+                    default:
+                        assert(false);
+                }
+            }
+        }
+    } else {
+        KontoQRes q; handle->allEntries(q);
+        handle->queryCompare(q, where.lid, where.rid, where.op, ret);
+    }
+    handle->close();
+    return ret;
+}
+
+KontoQRes KontoTerminal::queryWhereWithin(const KontoQRes& prev, const KontoWhere& where) {
+    assert(where.type != WT_CROSS);
+    KontoTableFile* handle; 
+    KontoQRes ret, tmp;
+    KontoTableFile::loadFile(currentDatabase + "/" + where.ltable, &handle);
+    if (where.type != WT_INNER) {
+        const KontoQRes& q = prev;
+        if (where.op < OP_DOUBLE) {
+            switch (where.keytype) {
+                case KT_INT:
+                    int vi = where.rvalue.value;
+                    handle->queryEntryInt(q, where.lid, where.op, vi, ret);
+                    break;
+                case KT_FLOAT:
+                    double vd = where.rvalue.doubleValue;
+                    handle->queryEntryFloat(q, where.lid, where.op, vd, ret);
+                    break;
+                case KT_STRING:
+                    const char* vs = where.rvalue.identifier.c_str();
+                    handle->queryEntryString(q, where.lid, where.op, vs, ret);
+                    break;
+                default:
+                    assert(false);
+            }
+        } else {
+            switch (where.keytype) {
+                case KT_INT:
+                    int vir = where.rvalue.value, vil = where.lvalue.value;
+                    handle->queryEntryInt(q, where.lid, where.op, vil, vir, ret);
+                    break;
+                case KT_FLOAT:
+                    double vdr = where.rvalue.doubleValue, vdl = where.lvalue.doubleValue;
+                    handle->queryEntryFloat(q, where.lid, where.op, vdl, vdr, ret);
+                    break;
+                case KT_STRING:
+                    const char* vsr = where.rvalue.identifier.c_str(), *vsl = where.lvalue.identifier.c_str();
+                    handle->queryEntryString(q, where.lid, where.op, vsl, vsr, ret);
+                    break;
+                default:
+                    assert(false);
+            }
+        }
+    } else {
+        handle->queryCompare(prev, where.lid, where.rid, where.op, ret);
+    }
+    handle->close();
+    return ret;
+}
+
+void KontoTerminal::queryWheres(const vector<KontoWhere>& wheres, KontoQRes& out) {
+    assert(wheres.size() > 0);
+    string table = wheres[0].ltable;
+    for (int i=1;i<wheres.size();i++) assert(wheres[i].ltable == table);
+    KontoTableFile* handle;
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    int first = 0; bool found = false;
+    for (int i=0;i<wheres.size();i++) {
+        if (wheres[i].type == WT_CONST && wheres[i].op >= OP_DOUBLE) {
+            KontoIndex* index = handle->getIndex(single_uint_vector(wheres[i].lid));
+            if (index!=nullptr) {found=true; first=i; break;}
+        } 
+    }
+    if (!found) {
+        for (int i=0;i<wheres.size();i++) {
+            if (wheres[i].type == WT_CONST && wheres[i].op < OP_DOUBLE) {
+                KontoIndex* index = handle->getIndex(single_uint_vector(wheres[i].lid));
+                if (index!=nullptr) {first=i; break;}
+            }
+        }
+    }
+    out = queryWhere(wheres[first]);
+    for (int i=0;i<wheres.size();i++) {
+        if (i!=first) out = queryWhereWithin(out, wheres[i]);
+    }
+    handle->close();
+}
+
+void KontoTerminal::queryWheres(const vector<KontoWhere>& wheres, vector<string>& tables, vector<KontoQRes>& results) {
+    vector<vector<KontoWhere>> whereSplited; whereSplited.clear();
+    tables.clear();
+    for (auto& where: wheres) {
+        if (where.type == WT_CROSS) continue;
+        string tb = where.ltable;
+        bool found = false; 
+        for (int i=0;i<tables.size();i++) 
+            if (tables[i]==tb) {found=true; whereSplited[i].push_back(where);}
+        if (!found) {
+            tables.push_back(tb); 
+            whereSplited.push_back(vector<KontoWhere>()); 
+            whereSplited[whereSplited.size()-1].push_back(where);
+        }
+    }
+    results.clear();
+    for (auto& vec: whereSplited) {
+        KontoQRes tbResult;
+        queryWheres(vec, tbResult);
+        results.push_back(tbResult);
+    }
+}
+
+void KontoTerminal::deleteStatement(string tbname, const vector<KontoWhere>& wheres) {
+    for (auto& item: wheres) assert(item.type != WT_CROSS);
+    
+}
+
+void KontoTerminal::debugFromStatement(string tbname, const vector<KontoWhere>& wheres) {
+    for (auto& item: wheres) assert(item.type != WT_CROSS);
+    KontoQRes q; queryWheres(wheres, q);
+    KontoTableFile* handle;
+    KontoTableFile::loadFile(currentDatabase + "/" + tbname, &handle);
+    handle->printTable(q, true);
     handle->close();
 }

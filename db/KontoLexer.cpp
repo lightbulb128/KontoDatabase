@@ -207,7 +207,7 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
                 break;
             case '<':
                 if (peek=='=') {currentToken = Token(TK_LESS_EQUAL); return TR_PEEKUSED_FINISHED;}
-                else if (peek=='>') {currentToken = Token(TK_LEFT_SHIFT); return TR_PEEKUSED_FINISHED;}
+                else if (peek=='>') {currentToken = Token(TK_NOT_EQUAL); return TR_PEEKUSED_FINISHED;}
                 else {currentToken = Token(TK_LESS); return TR_FINISHED;}
                 break;
             case '-':
@@ -234,6 +234,11 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
                 currentToken = Token(TK_LBRACKET); return TR_FINISHED; break;
             case ']':
                 currentToken = Token(TK_RBRACKET); return TR_FINISHED; break;
+            case '.':
+                if (!isNumber(peek)) {
+                    currentToken = Token(TK_DOT); return TR_FINISHED; 
+                }
+                break;
             default:
                 flagSymbol = false;
         }
@@ -265,11 +270,15 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
     }
     if (flagValue) {
         if (currentLength == 0) {
-            if (!isNumber(c) && c!='\"' && c!='.') {flagValue = false;}
+            if (!isNumber(c) && c!='\"' && c!='.' && c!='-') {flagValue = false;}
             else {
-                isFloat = false; isString = false;
+                isFloat = false; isString = false; isNegative = false;
                 if (isNumber(c)) {currentValue = c-48; return TR_CONTINUE;}
                 else if (c=='\"') {isString = true, currentIdentifier = ""; return TR_CONTINUE;}
+                else if (c=='-') {
+                    isNegative = true; currentValue = 0;
+                    return TR_CONTINUE;
+                }
                 else {
                     isFloat = true, currentDecimal = true, currentFloatValue = 0, currentFloatUnit = 0.1;
                     return TR_CONTINUE;
@@ -281,11 +290,11 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
                 else {currentIdentifier += c; return TR_CONTINUE;}
             } else if (isFloat) {
                 if (isNumber(c)) {currentFloatValue += currentFloatUnit * (c-48), currentFloatUnit /= 10; return TR_CONTINUE;}
-                else {currentToken = Token(TK_FLOAT_VALUE, currentFloatValue); return TR_PUTBACK;}
+                else {currentToken = Token(TK_FLOAT_VALUE, isNegative ? (-currentFloatValue) : currentFloatValue); return TR_PUTBACK;}
             } else {
                 if (isNumber(c)) {currentValue = currentValue * 10 + c - 48; return TR_CONTINUE;}
                 else if (c=='.') {isFloat = true; currentDecimal = true; currentFloatValue = currentValue; currentFloatUnit = 0.1; return TR_CONTINUE;}
-                else {currentToken = Token(TK_INT_VALUE, currentValue); return TR_PUTBACK;}
+                else {currentToken = Token(TK_INT_VALUE, isNegative ? (-currentValue) : currentValue); return TR_PUTBACK;}
             }
         }
     }

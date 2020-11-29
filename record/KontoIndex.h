@@ -103,6 +103,8 @@ public:
 
     KontoResult drop();
 
+    KontoResult queryE(char* record, KontoRPos& out);
+
     void debugPrintKey(char* ptr);
     void debugPrintRecord(char* ptr);
     void debugPrintPage(int pageID, bool recur = true);

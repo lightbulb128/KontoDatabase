@@ -12,7 +12,7 @@ using std::stack;
 const int   VALID_CHAR_RANGE  = 26;
 const int   VALID_CHAR_OFFSET = 97;
 // const char* VALID_SYMBOLS    = "~!%^&*()-=+[]{}\\|;:<>,./?";
-const char * const VALID_SYMBOLS = "(){};><=,-~!+*%/|&?:[]"; // quote should not be treated as a symbol
+const char * const VALID_SYMBOLS = "(){};><=,~!+*%/|&?:[]."; // quote should not be treated as a symbol
 const int MAX_INT = 0x7fffffff;
 
 enum TokenKind {
@@ -39,6 +39,7 @@ enum TokenKind {
     TK_PLUS, TK_ASTERISK, TK_LSLASH, TK_PERCENT, 
     TK_QUESTION, TK_COLON, 
     TK_LBRACKET, TK_RBRACKET,
+    TK_DOT,
     // eof
     TK_EOF, 
     // error
@@ -92,6 +93,7 @@ private:
     bool currentDecimal;
     bool isFloat;
     bool isString;
+    bool isNegative;
     string currentIdentifier;
     int currentLength;
     std::istream* stream;
