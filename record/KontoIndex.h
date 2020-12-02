@@ -35,8 +35,6 @@ private:
     KontoIndex();
     int fileID;
     int pageCount;
-    // 比较两个域，通过type指定域的类型，返回值正数表示d1>d2，负数表示d1<d2，0表示两者相等
-    static int compare(char* d1, char* d2, KontoKeyType type);
     // 根据索引键的定义，比较一条数据记录和一个索引键
     int compare(char* record, char* index);
     // 根据索引键的定义，比较两条数据记录
@@ -74,6 +72,8 @@ private:
     // 判断pos位置的记录是否已经被删除
     bool isDeleted(KontoIPos& pos);
 public:
+    // 比较两个域，通过type指定域的类型，返回值正数表示d1>d2，负数表示d1<d2，0表示两者相等
+    static int compare(char* d1, char* d2, KontoKeyType type);
     // 创建索引
     static KontoResult createIndex(string filename, KontoIndex** handle, 
         vector<KontoKeyType> ktypes, vector<uint> kposs, vector<uint> ksizes);

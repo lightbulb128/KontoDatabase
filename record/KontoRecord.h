@@ -252,6 +252,13 @@ public:
     void queryCompare(const KontoQRes& from, KontoKeyIndex k1, KontoKeyIndex k2, 
         OperatorType op, KontoQRes& out);
 
+    void deletes(const KontoQRes& items) {
+        for (auto& item: items.items) {
+            deleteEntry(item);
+            deleteIndex(item);
+        }
+    }
+
     void debugtest();
 };
 

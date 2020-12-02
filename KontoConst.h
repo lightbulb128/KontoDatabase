@@ -22,6 +22,7 @@ typedef char* charptr;
 
 const string TABS[5] = {"", "    ", "        ", "            ", "                "};
 const string SPACES = "                                                          ";
+const string TEMP_FILE = "__temp";
 
 // PRINT WITH TABS
 void PT(int tabs, const string& prom);

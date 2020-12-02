@@ -438,7 +438,7 @@ ProcessStatementResult KontoTerminal::processStatement() {
                 ASSERTERR(cur, TK_WHERE, "debug from: Expect keyword WHERE.");
                 vector<KontoWhere> wheres; 
                 ProcessStatementResult psr = processWheres(table, wheres);
-                if (psr == PSR_OK) debugFromStatement(table, wheres);
+                if (psr == PSR_OK) debugFrom(table, wheres);
                 return psr;
             }
         }
@@ -454,7 +454,7 @@ ProcessStatementResult KontoTerminal::processStatement() {
             ASSERTERR(cur, TK_WHERE, "delete: Expect keyword WHERE.");
             vector<KontoWhere> wheres; 
             ProcessStatementResult psr = processWheres(table, wheres);
-            if (psr == PSR_OK) deleteStatement(table, wheres);
+            if (psr == PSR_OK) deletes(table, wheres);
             return psr;
         }
 
@@ -489,6 +489,10 @@ ProcessStatementResult KontoTerminal::processStatement() {
         case TK_QUIT: {
             Token peek = lexer.peek();
             return PSR_QUIT;
+        }
+
+        case TK_SELECT: {
+            return processSelect();
         }
 
         case TK_SHOW: {
@@ -1319,16 +1323,169 @@ void KontoTerminal::queryWheres(const vector<KontoWhere>& wheres, vector<string>
     }
 }
 
-void KontoTerminal::deleteStatement(string tbname, const vector<KontoWhere>& wheres) {
-    for (auto& item: wheres) assert(item.type != WT_CROSS);
-    
+void KontoTerminal::queryWheresFrom(const vector<KontoWhere>& wheres, const vector<string>& givenTables, vector<KontoQRes>& results) {
+    vector<string> tables; 
+    vector<KontoQRes> temp;
+    queryWheres(wheres, tables, temp);
+    results.clear();
+    for (int i=0;i<givenTables.size();i++) {
+        bool flag = false;
+        for (int j=0;j<tables.size();j++) {if (tables[j]==givenTables[i]) {results.push_back(temp[j]); flag = true; break;}}
+        if (!flag) {
+            KontoTableFile* handle;
+            KontoTableFile::loadFile(currentDatabase + "/" + givenTables[i], &handle);
+            KontoQRes q;
+            handle->allEntries(q);
+            results.push_back(q);
+            handle->close();
+        }
+    }
 }
 
-void KontoTerminal::debugFromStatement(string tbname, const vector<KontoWhere>& wheres) {
+void KontoTerminal::deletes(string tbname, const vector<KontoWhere>& wheres) {
+    for (auto& item: wheres) assert(item.type != WT_CROSS);
+    KontoQRes q; queryWheres(wheres, q);
+    KontoTableFile* handle;
+    KontoTableFile::loadFile(currentDatabase + "/" + tbname, &handle);
+    handle->printTable(q, true); 
+    handle->close();
+}
+
+void KontoTerminal::debugFrom(string tbname, const vector<KontoWhere>& wheres) {
     for (auto& item: wheres) assert(item.type != WT_CROSS);
     KontoQRes q; queryWheres(wheres, q);
     KontoTableFile* handle;
     KontoTableFile::loadFile(currentDatabase + "/" + tbname, &handle);
     handle->printTable(q, true);
     handle->close();
+}
+
+ProcessStatementResult KontoTerminal::processSelect() {
+    Token cur, peek = lexer.peek();
+    vector<string> selectedColumns; selectedColumns.clear();
+    vector<string> selectedColumnTables; selectedColumnTables.clear();
+    while (peek.tokenKind != TK_FROM) {
+        cur = lexer.nextToken(); peek = lexer.peek();
+        ASSERTERR(cur, TK_IDENTIFIER, "select cols: Expect identifier.");
+        if (peek.tokenKind == TK_DOT) {
+            selectedColumnTables.push_back(cur.identifier);
+            cur = lexer.nextToken(); 
+            ASSERTERR(cur, TK_IDENTIFIER, "select cols: Expect identifier after dot.");
+            selectedColumns.push_back(cur.identifier);
+        } else {
+            selectedColumns.push_back(cur.identifier);
+            selectedColumnTables.push_back("");
+        } 
+        peek = lexer.peek(); 
+        if (peek.tokenKind == TK_COMMA) lexer.nextToken();
+    }
+    lexer.nextToken(); 
+    vector<string> fromTables; fromTables.clear();
+    while (true) {
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_IDENTIFIER, "select from: Expect identifier.");
+        fromTables.push_back(cur.identifier);
+        cur = lexer.nextToken();
+        if (cur.tokenKind == TK_WHERE) break;
+    }
+    vector<KontoWhere> wheres;
+    ProcessStatementResult psr = processWheres(fromTables, wheres);
+    if (psr != PSR_OK) return psr;
+    vector<KontoQRes> lists;
+    queryWheresFrom(wheres, fromTables, lists);
+    typedef KontoTableFile* KontoTableFilePtr;
+    uint nTables = fromTables.size();
+    KontoTableFilePtr tables[nTables];
+    for (int i=0;i<nTables;i++) 
+        KontoTableFile::loadFile(currentDatabase + "/" + fromTables[i], &tables[i]);
+    vector<uint> selectedTables; // the selected columns' table, indicated by index
+    vector<uint> selectedKids;   // the selected columns, indicated by index
+    KontoTableFile* tempTable;
+    KontoTableFile::createFile(currentDatabase + "/" + TEMP_FILE, &tempTable);
+    selectedTables.clear();
+    for (int i=0;i<selectedColumns.size();i++) {
+        if (selectedColumnTables[i]=="") { 
+            string target = selectedColumns[i];
+            bool flag = false;
+            for (int j=0;j<nTables;j++) {
+                uint kid;
+                KontoResult result = tables[j]->getKeyIndex(target.c_str(), kid);
+                if (result == KR_OK) {
+                    selectedTables.push_back(j); selectedKids.push_back(kid); flag=true; break;
+                }
+            }
+            if (!flag) return err("select: no such column called " + target);
+        } else {
+            for (int j=0;j<nTables;j++) {
+                if (fromTables[j] != selectedColumnTables[i]) continue;
+                uint kid; 
+                KontoResult result = tables[j]->getKeyIndex(selectedColumns[i].c_str(), kid);
+                if (result != KR_OK) return err("select: no such column called " + selectedColumns[i] + " in " + selectedColumnTables[i]);
+                selectedTables.push_back(j); selectedKids.push_back(kid);
+                break;
+            }
+        }
+    }
+    int nSelected = selectedKids.size();
+    for (int i=0;i<nSelected;i++) {
+        KontoCDef defcloned = tables[selectedTables[i]]->keys[selectedKids[i]];
+        defcloned.name = tables[selectedTables[i]]->filename + "_" + tables[selectedTables[i]]->keys[selectedKids[i]].name;
+        tempTable->defineField(defcloned);
+    }
+    tempTable->finishDefineField();
+    charptr buffers[nTables]; for (int i=0;i<nTables;i++) buffers[i] = new char[tables[i]->getRecordSize()];
+    char insertBuffer[tempTable->getRecordSize()];
+    // get WT_CROSS wheres
+    vector<KontoWhere> whereTemp = wheres; wheres.clear(); 
+    for (auto& where: whereTemp) if (where.type == WT_CROSS) wheres.push_back(where);
+    uint nWheres = wheres.size();
+    vector<uint> ltables, rtables; ltables.clear(); rtables.clear();
+    for (auto& where: wheres) {
+        for (int i=0;i<nTables;i++) if (where.ltable == fromTables[i]) {ltables.push_back(i); break;}
+        for (int i=0;i<nTables;i++) if (where.rtable == fromTables[i]) {rtables.push_back(i); break;}
+    }
+    // iterate from iterators[0]
+    uint iterators[nTables]; for (int i=0;i<nTables;i++) iterators[i] = 0;
+    for (int i=0;i<nTables;i++) tables[i]->getDataCopied(lists[i].get(iterators[i]), buffers[i]);
+    while (true) {
+        bool flag = true;
+        // check all wheres of WT_CROSS, whereas other types of wheres are already filtered in the lists
+        for (int i=0;i<nWheres;i++) {
+            char* lptr = buffers[ltables[i]] + tables[ltables[i]]->keys[wheres[i].lid].position;
+            char* rptr = buffers[rtables[i]] + tables[rtables[i]]->keys[wheres[i].rid].position;
+            int comp = KontoIndex::compare(lptr, rptr, wheres[i].keytype);
+            bool consistent = false;
+            switch (wheres[i].op) {
+                case OP_LESS: consistent = comp < 0; break;
+                case OP_LESS_EQUAL: consistent = comp <= 0; break;
+                case OP_GREATER: consistent = comp > 0; break;
+                case OP_GREATER_EQUAL: consistent = comp >= 0; break;
+                case OP_EQUAL: consistent = comp == 0; break;
+                case OP_NOT_EQUAL: consistent = comp != 0; break;
+            }
+            if (!consistent) {flag=false; break;}
+        }
+        if (!flag) continue;
+        // add the permutation to the results
+        for (int i=0;i<nSelected;i++) 
+            memcpy(insertBuffer + tempTable->keys[i].position, 
+                buffers[selectedTables[i]] + tables[selectedTables[i]]->keys[selectedKids[i]].position, 
+                tables[selectedTables[i]]->keys[selectedKids[i]].size);
+        tempTable->insert(insertBuffer);
+        // iterate
+        int t = 0; iterators[t]++;
+        while (t<nTables && iterators[t]>=lists[t].size()) {
+            iterators[t]=0; 
+            tables[t]->getDataCopied(lists[t].get(iterators[t]), buffers[t]);
+            t++;
+            iterators[t]++;
+        }
+        if (t==nTables) break;
+        tables[t]->getDataCopied(lists[t].get(iterators[t]), buffers[t]);
+    }
+    for (int i=0;i<nTables;i++) {
+        tables[i]->close(); delete[] buffers[i];
+    }
+    tempTable->printTable(true, true);
+    tempTable->drop();
 }
