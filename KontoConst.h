@@ -85,11 +85,16 @@ const int OP_DOUBLE = OP_LCRC;
 const KontoKeyType KT_INT        = 0x0;
 const KontoKeyType KT_STRING     = 0x1;
 const KontoKeyType KT_FLOAT      = 0x2;
-const string _key_type_strs[3] = {"kint", "kstring", "kfloat"};
+const KontoKeyType KT_DATE       = 0x3;
+const string _key_type_strs[4] = {"kint", "kstring", "kfloat", "kdate"};
+
+typedef uint Date;
 
 const int DEFAULT_INT_VALUE = 0;
 const double DEFAULT_FLOAT_VALUE = std::nan("");
 const char* const DEFAULT_STRING_VALUE = "";
+const Date DEFAULT_DATE_VALUE = 0;
+const char* const DEFAULT_DATE_VALUE_STRING = "0-0-0";
 
 const int MAX_INT_WIDTH = 20;
 const int MIN_INT_WIDTH = 10;
@@ -97,6 +102,8 @@ const int MAX_VARCHAR_WIDTH = 22;
 const int MIN_VARCHAR_WIDTH = 5;
 const int MAX_FLOAT_WIDTH = 20;
 const int MIN_FLOAT_WIDTH = 9;
+const int MAX_DATE_WIDTH = 20;
+const int MIN_DATE_WIDTH = 11;
 
 string get_filename(string filename);
 
@@ -174,5 +181,9 @@ inline int clamp(int min, int max, int val) {
 }
 
 string value_to_string(char* value, KontoKeyType type);
+
+string date_to_string(Date value);
+
+bool parse_date(string str, Date& out);
 
 #endif

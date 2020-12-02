@@ -81,6 +81,7 @@ public:
     void printWhere(const KontoWhere& where);
     void printWheres(const vector<KontoWhere>& wheres);
     void printQRes(const KontoQRes& qres);
+    TokenExpectation valueTypeToExpectation(KontoKeyType type);
 
     ProcessStatementResult err(string message);
     void main();
@@ -91,6 +92,7 @@ public:
     ProcessStatementResult processWheres(const vector<string>& tables, vector<KontoWhere>& out);
     ProcessStatementResult processInsert(string tbname);
     ProcessStatementResult processSelect();
+    ProcessStatementResult processUpdate(string tbname);
 };
 
 #endif

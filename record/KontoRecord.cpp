@@ -232,7 +232,7 @@ KontoResult KontoTableFile::getDataCopied(const KontoRPos& pos, char* dest) {
     return KR_OK;
 }
 
-KontoResult KontoTableFile::editEntryInt(KontoRPos& pos, KontoKeyIndex key, int datum) {
+KontoResult KontoTableFile::editEntryInt(const KontoRPos& pos, KontoKeyIndex key, int datum) {
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_INT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -240,7 +240,7 @@ KontoResult KontoTableFile::editEntryInt(KontoRPos& pos, KontoKeyIndex key, int 
     return KR_OK;
 }
 
-KontoResult KontoTableFile::readEntryInt(KontoRPos& pos, KontoKeyIndex key, int& out) {
+KontoResult KontoTableFile::readEntryInt(const KontoRPos& pos, KontoKeyIndex key, int& out) {
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_INT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -248,7 +248,7 @@ KontoResult KontoTableFile::readEntryInt(KontoRPos& pos, KontoKeyIndex key, int&
     return KR_OK;
 }
 
-KontoResult KontoTableFile::editEntryFloat(KontoRPos& pos, KontoKeyIndex key, double datum) {
+KontoResult KontoTableFile::editEntryFloat(const KontoRPos& pos, KontoKeyIndex key, double datum) {
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_FLOAT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -256,7 +256,7 @@ KontoResult KontoTableFile::editEntryFloat(KontoRPos& pos, KontoKeyIndex key, do
     return KR_OK;
 }
 
-KontoResult KontoTableFile::readEntryFloat(KontoRPos& pos, KontoKeyIndex key, double& out) {
+KontoResult KontoTableFile::readEntryFloat(const KontoRPos& pos, KontoKeyIndex key, double& out) {
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_FLOAT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -264,7 +264,7 @@ KontoResult KontoTableFile::readEntryFloat(KontoRPos& pos, KontoKeyIndex key, do
     return KR_OK;
 }
 
-KontoResult KontoTableFile::editEntryString(KontoRPos& pos, KontoKeyIndex key, char* data) {
+KontoResult KontoTableFile::editEntryString(const KontoRPos& pos, KontoKeyIndex key, const char* data) {
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_STRING) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -272,11 +272,27 @@ KontoResult KontoTableFile::editEntryString(KontoRPos& pos, KontoKeyIndex key, c
     return KR_OK;
 }
 
-KontoResult KontoTableFile::readEntryString(KontoRPos& pos, KontoKeyIndex key, char* out) {
+KontoResult KontoTableFile::readEntryString(const KontoRPos& pos, KontoKeyIndex key, char* out) {
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_STRING) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
     strcpy(out, (char*)ptr);
+    return KR_OK;
+}
+
+KontoResult KontoTableFile::editEntryDate(const KontoRPos& pos, KontoKeyIndex key, Date datum) {
+    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (keys[key].type!=KT_DATE) return KR_TYPE_NOT_MATCHING;
+    char* ptr = getDataPointer(pos, key, true);
+    *((Date*)ptr) = datum;
+    return KR_OK;
+}
+
+KontoResult KontoTableFile::readEntryDate(const KontoRPos& pos, KontoKeyIndex key, Date& out) {
+    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (keys[key].type!=KT_DATE) return KR_TYPE_NOT_MATCHING;
+    char* ptr = getDataPointer(pos, key, true);
+    out = *((Date*)ptr);
     return KR_OK;
 }
 
@@ -332,6 +348,20 @@ KontoResult KontoTableFile::queryEntryString(const KontoQRes& from, KontoKeyInde
         if (VI(ptr + 4) & FLAGS_DELETED) continue;
         ptr += keys[key].position;
         if (cond((char*)ptr)) result.push(item);
+    }
+    result.sorted = true;
+    out = result;
+    return KR_OK;
+}
+
+KontoResult KontoTableFile::queryEntryDate(const KontoQRes& from, KontoKeyIndex key, function<bool(Date)> cond, KontoQRes& out) {
+    if (keys[key].type!=KT_DATE) return KR_TYPE_NOT_MATCHING; 
+    KontoQRes result; 
+    for (auto& item : from.items) {
+        char* ptr = getRecordPointer(item, false);
+        if (VI(ptr + 4) & FLAGS_DELETED) continue;
+        ptr += keys[key].position;
+        if (cond(*((Date*)ptr))) result.push(item);
     }
     result.sorted = true;
     out = result;
@@ -411,24 +441,6 @@ KontoQueryResult KontoQueryResult::substract(KontoQueryResult& b) {
     return ret;
 }
 
-void KontoTableFile::debugtest(){
-    cout << "[TABLE NAME = " << filename << "]\n";
-    cout << "    recordsize=" << recordSize << endl;
-    cout << "    recordcount=" << recordCount << endl;
-    cout << "    pagecount=" << pageCount << endl;
-    cout << "    FIELDS:" << endl;
-    for (auto key : keys) {
-        cout << "        [" << key.name << "]" << " type=" << key.type << " size=" << key.size
-        << " pos=" << key.position << endl;
-    }
-    KontoQRes q; allEntries(q); 
-    int i = 0;
-    for (auto item : q.items) {
-        cout << "   (" << i << ") "; printRecord(item, true); cout << endl;
-        i++;
-    }
-}
-
 KontoResult KontoTableFile::createIndex(const vector<KontoKeyIndex>& keyIndices, KontoIndex** handle) {
     vector<string> opt = vector<string>();
     vector<uint> kpos = vector<uint>();
@@ -484,7 +496,7 @@ void KontoTableFile::removeIndices() {
         remove_file(indexFilename);
 }
 
-KontoResult KontoTableFile::insertIndex(KontoRPos& pos) {
+KontoResult KontoTableFile::insertIndex(const KontoRPos& pos) {
     char* data = new char[recordSize];
     getDataCopied(pos, data);
     for (auto& index : indices) {
@@ -496,7 +508,7 @@ KontoResult KontoTableFile::insertIndex(KontoRPos& pos) {
     return KR_OK;
 }
 
-KontoResult KontoTableFile::insertIndex(KontoRPos& pos, KontoIndex* dest) {
+KontoResult KontoTableFile::insertIndex(const KontoRPos& pos, KontoIndex* dest) {
     char* data = new char[recordSize];
     getDataCopied(pos, data);
     dest->insert(data, pos);
@@ -547,39 +559,6 @@ KontoIndex* KontoTableFile::getIndex(const vector<KontoKeyIndex>& keyIndices) {
     return nullptr;
 }
 
-void KontoTableFile::printRecord(char* record) {
-    cout << "["; 
-    for (int i=0;i<keys.size();i++) {
-        if (i!=0) cout <<"; ";
-        cout<<keys[i].name<<"=";
-        switch (keys[i].type) {
-            case KT_INT: {
-                int vi = *((int*)(record + keys[i].position));
-                cout << vi; break;
-            }
-            case KT_FLOAT: {
-                double vd = *((double*)(record + keys[i].position));
-                cout << vd; break;
-            }
-            case KT_STRING: {
-                char* vs = (char*)(record+keys[i].position);
-                cout << vs; break;
-            }
-        }
-    }
-    cout << "]";
-}
-
-void KontoTableFile::printRecord(const KontoRPos& pos, bool printPos) {
-    char* data = new char[getRecordSize()];
-    getDataCopied(pos, data);
-    if (printPos) {
-        cout << "[POS " << pos.page << ":" << pos.id << "] ";
-    }
-    printRecord(data);
-    delete[] data;
-}
-
 KontoResult KontoTableFile::setEntryInt(char* record, KontoKeyIndex key, int datum) {
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_INT) return KR_TYPE_NOT_MATCHING;
@@ -601,6 +580,14 @@ KontoResult KontoTableFile::setEntryString(char* record, KontoKeyIndex key, cons
     if (keys[key].type!=KT_STRING) return KR_TYPE_NOT_MATCHING;
     char* ptr = record + keys[key].position;
     strcpy((char*)ptr, data);
+    return KR_OK;
+}
+
+KontoResult KontoTableFile::setEntryDate(char* record, KontoKeyIndex key, Date datum) {
+    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (keys[key].type!=KT_DATE) return KR_TYPE_NOT_MATCHING;
+    char* ptr = record + keys[key].position;
+    *((Date*)ptr) = datum;
     return KR_OK;
 }
 
@@ -843,7 +830,7 @@ KontoResult KontoTableFile::alterAddForeignKey(string name, const vector<uint>& 
     PS(ptr, name);
     PS(ptr, foreignTable);
     for (auto& fname: foreignName) {
-        cout << "fname" << fname << endl;
+        //cout << "fname" << fname << endl;
         PS(ptr, fname);
     }
     pmgr.markDirty(bufindex);
@@ -965,6 +952,7 @@ void KontoTableFile::printTableHeader(bool pos) {
         if (key.type == KT_INT) s = clamp(MIN_INT_WIDTH, MAX_INT_WIDTH, key.name.length());
         else if (key.type == KT_FLOAT) s = clamp(MIN_FLOAT_WIDTH, MAX_FLOAT_WIDTH, key.name.length());
         else if (key.type == KT_STRING) s = clamp(MIN_VARCHAR_WIDTH, MAX_VARCHAR_WIDTH, std::max((uint)key.name.length(), key.size-1));
+        else if (key.type == KT_DATE) s = clamp(MIN_DATE_WIDTH, MAX_DATE_WIDTH, key.name.length());
         else assert(false);
         cout << "|" << SS(s, key.name, true);
     }
@@ -985,6 +973,7 @@ void KontoTableFile::printTableEntry(const KontoRPos& item, bool pos) {
         if (key.type == KT_INT) s = clamp(MIN_INT_WIDTH, MAX_INT_WIDTH, key.name.length());
         else if (key.type == KT_FLOAT) s = clamp(MIN_FLOAT_WIDTH, MAX_FLOAT_WIDTH, key.name.length());
         else if (key.type == KT_STRING) s = clamp(MIN_VARCHAR_WIDTH, MAX_VARCHAR_WIDTH, std::max((uint)key.name.length(), key.size-1));
+        else if (key.type == KT_DATE) s = clamp(MIN_DATE_WIDTH, MAX_DATE_WIDTH, key.name.length());
         else assert(false);
         cout << SS(s, value_to_string(data + keys[i].position, keys[i].type), true);
     }
@@ -1035,61 +1024,85 @@ KontoQRes KontoQueryResult::append(const KontoQRes& b) {
 void KontoTableFile::queryEntryInt(const KontoQRes& q, KontoKeyIndex key, OperatorType op, int vi, KontoQRes& ret) {
     switch (op) {
         case OP_EQUAL:        queryEntryInt(q, key, [vi](int p){return p==vi;}, ret); break;
-        case OP_NOT_EQUAL:    queryEntryInt(q, key, [vi](int p){return p!=vi;}, ret); break;
-        case OP_LESS:         queryEntryInt(q, key, [vi](int p){return p< vi;}, ret); break;
-        case OP_LESS_EQUAL   :queryEntryInt(q, key, [vi](int p){return p<=vi;}, ret); break;
-        case OP_GREATER      :queryEntryInt(q, key, [vi](int p){return p> vi;}, ret); break;
-        case OP_GREATER_EQUAL:queryEntryInt(q, key, [vi](int p){return p>=vi;}, ret); break;
+        case OP_NOT_EQUAL:    queryEntryInt(q, key, [vi](int p){return p!=vi && p!=DEFAULT_INT_VALUE;}, ret); break;
+        case OP_LESS:         queryEntryInt(q, key, [vi](int p){return p< vi && p!=DEFAULT_INT_VALUE;}, ret); break;
+        case OP_LESS_EQUAL   :queryEntryInt(q, key, [vi](int p){return p<=vi && p!=DEFAULT_INT_VALUE;}, ret); break;
+        case OP_GREATER      :queryEntryInt(q, key, [vi](int p){return p> vi && p!=DEFAULT_INT_VALUE;}, ret); break;
+        case OP_GREATER_EQUAL:queryEntryInt(q, key, [vi](int p){return p>=vi && p!=DEFAULT_INT_VALUE;}, ret); break;
     } 
 }
 
 void KontoTableFile::queryEntryInt(const KontoQRes& q, KontoKeyIndex key, OperatorType op, int vl, int vr, KontoQRes& ret) {
     switch (op) {
-        case OP_LCRC: queryEntryInt(q, key, [vl, vr](int p){return p>=vl && p<=vr;}, ret); break;
-        case OP_LCRO: queryEntryInt(q, key, [vl, vr](int p){return p>=vl && p< vr;}, ret); break;
-        case OP_LORC: queryEntryInt(q, key, [vl, vr](int p){return p> vl && p<=vr;}, ret); break;
-        case OP_LORO: queryEntryInt(q, key, [vl, vr](int p){return p> vl && p< vr;}, ret); break;
+        case OP_LCRC: queryEntryInt(q, key, [vl, vr](int p){return p>=vl && p<=vr && p!=DEFAULT_INT_VALUE;}, ret); break;
+        case OP_LCRO: queryEntryInt(q, key, [vl, vr](int p){return p>=vl && p< vr && p!=DEFAULT_INT_VALUE;}, ret); break;
+        case OP_LORC: queryEntryInt(q, key, [vl, vr](int p){return p> vl && p<=vr && p!=DEFAULT_INT_VALUE;}, ret); break;
+        case OP_LORO: queryEntryInt(q, key, [vl, vr](int p){return p> vl && p< vr && p!=DEFAULT_INT_VALUE;}, ret); break;
     } 
 }
 
 void KontoTableFile::queryEntryFloat(const KontoQRes& q, KontoKeyIndex key, OperatorType op, double vd, KontoQRes& ret) {
     switch (op) {
-        case OP_EQUAL:        queryEntryFloat(q, key, [vd](double p){return p==vd;}, ret); break;
-        case OP_NOT_EQUAL:    queryEntryFloat(q, key, [vd](double p){return p!=vd;}, ret); break;
-        case OP_LESS:         queryEntryFloat(q, key, [vd](double p){return p< vd;}, ret); break;
-        case OP_LESS_EQUAL   :queryEntryFloat(q, key, [vd](double p){return p<=vd;}, ret); break;
-        case OP_GREATER      :queryEntryFloat(q, key, [vd](double p){return p> vd;}, ret); break;
-        case OP_GREATER_EQUAL:queryEntryFloat(q, key, [vd](double p){return p>=vd;}, ret); break;
+        case OP_EQUAL:        queryEntryFloat(q, key, [vd](double p){return p==vd && p!=DEFAULT_FLOAT_VALUE;}, ret); break;
+        case OP_NOT_EQUAL:    queryEntryFloat(q, key, [vd](double p){return p!=vd && p!=DEFAULT_FLOAT_VALUE;}, ret); break;
+        case OP_LESS:         queryEntryFloat(q, key, [vd](double p){return p< vd && p!=DEFAULT_FLOAT_VALUE;}, ret); break;
+        case OP_LESS_EQUAL   :queryEntryFloat(q, key, [vd](double p){return p<=vd && p!=DEFAULT_FLOAT_VALUE;}, ret); break;
+        case OP_GREATER      :queryEntryFloat(q, key, [vd](double p){return p> vd && p!=DEFAULT_FLOAT_VALUE;}, ret); break;
+        case OP_GREATER_EQUAL:queryEntryFloat(q, key, [vd](double p){return p>=vd && p!=DEFAULT_FLOAT_VALUE;}, ret); break;
     } 
 }
 
 void KontoTableFile::queryEntryFloat(const KontoQRes& q, KontoKeyIndex key, OperatorType op, double vl, double vr, KontoQRes& ret) {
     switch (op) {
-        case OP_LCRC: queryEntryFloat(q, key, [vl, vr](double p){return p>=vl && p<=vr;}, ret); break;
-        case OP_LCRO: queryEntryFloat(q, key, [vl, vr](double p){return p>=vl && p< vr;}, ret); break;
-        case OP_LORC: queryEntryFloat(q, key, [vl, vr](double p){return p> vl && p<=vr;}, ret); break;
-        case OP_LORO: queryEntryFloat(q, key, [vl, vr](double p){return p> vl && p< vr;}, ret); break;
+        case OP_LCRC: queryEntryFloat(q, key, [vl, vr](double p){return p>=vl && p<=vr && p!=DEFAULT_FLOAT_VALUE;}, ret); break;
+        case OP_LCRO: queryEntryFloat(q, key, [vl, vr](double p){return p>=vl && p< vr && p!=DEFAULT_FLOAT_VALUE;}, ret); break;
+        case OP_LORC: queryEntryFloat(q, key, [vl, vr](double p){return p> vl && p<=vr && p!=DEFAULT_FLOAT_VALUE;}, ret); break;
+        case OP_LORO: queryEntryFloat(q, key, [vl, vr](double p){return p> vl && p< vr && p!=DEFAULT_FLOAT_VALUE;}, ret); break;
     } 
 }
 
 void KontoTableFile::queryEntryString(const KontoQRes& q, KontoKeyIndex key, OperatorType op, const char* vs, KontoQRes& ret) {
     switch (op) {
         case OP_EQUAL:        queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)==0;}, ret); break;
-        case OP_NOT_EQUAL:    queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)!=0;}, ret); break;
-        case OP_LESS:         queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)< 0;}, ret); break;
-        case OP_LESS_EQUAL   :queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)<=0;}, ret); break;
-        case OP_GREATER      :queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)> 0;}, ret); break;
-        case OP_GREATER_EQUAL:queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)>=0;}, ret); break;
+        case OP_NOT_EQUAL:    queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)!=0 && strcmp(p, DEFAULT_STRING_VALUE)!=0;}, ret); break;
+        case OP_LESS:         queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)< 0 && strcmp(p, DEFAULT_STRING_VALUE)!=0;}, ret); break;
+        case OP_LESS_EQUAL   :queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)<=0 && strcmp(p, DEFAULT_STRING_VALUE)!=0;}, ret); break;
+        case OP_GREATER      :queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)> 0 && strcmp(p, DEFAULT_STRING_VALUE)!=0;}, ret); break;
+        case OP_GREATER_EQUAL:queryEntryString(q, key, [vs](const char* p){return strcmp(p, vs)>=0 && strcmp(p, DEFAULT_STRING_VALUE)!=0;}, ret); break;
     } 
 }
 
 void KontoTableFile::queryEntryString(const KontoQRes& q, KontoKeyIndex key, OperatorType op, const char* vl, const char* vr, KontoQRes& ret) {
     switch (op) {
-        case OP_LCRC: queryEntryString(q, key, [vl, vr](const char* p){return strcmp(p, vl)>=0 && strcmp(p, vr)<=0;}, ret); break;
-        case OP_LCRO: queryEntryString(q, key, [vl, vr](const char* p){return strcmp(p, vl)>=0 && strcmp(p, vr)< 0;}, ret); break;
-        case OP_LORC: queryEntryString(q, key, [vl, vr](const char* p){return strcmp(p, vl)> 0 && strcmp(p, vr)<=0;}, ret); break;
-        case OP_LORO: queryEntryString(q, key, [vl, vr](const char* p){return strcmp(p, vl)> 0 && strcmp(p, vr)< 0;}, ret); break;
+        case OP_LCRC: queryEntryString(q, key, [vl, vr](const char* p)
+            {return strcmp(p, vl)>=0 && strcmp(p, vr)<=0 && strcmp(p, DEFAULT_STRING_VALUE)!=0;}, ret); break;
+        case OP_LCRO: queryEntryString(q, key, [vl, vr](const char* p)
+            {return strcmp(p, vl)>=0 && strcmp(p, vr)< 0 && strcmp(p, DEFAULT_STRING_VALUE)!=0;}, ret); break;
+        case OP_LORC: queryEntryString(q, key, [vl, vr](const char* p)
+            {return strcmp(p, vl)> 0 && strcmp(p, vr)<=0 && strcmp(p, DEFAULT_STRING_VALUE)!=0;}, ret); break;
+        case OP_LORO: queryEntryString(q, key, [vl, vr](const char* p)
+            {return strcmp(p, vl)> 0 && strcmp(p, vr)< 0 && strcmp(p, DEFAULT_STRING_VALUE)!=0;}, ret); break;
     }
+}
+
+void KontoTableFile::queryEntryDate(const KontoQRes& q, KontoKeyIndex key, OperatorType op, Date vi, KontoQRes& ret) {
+    switch (op) {
+        case OP_EQUAL:        queryEntryDate(q, key, [vi](Date p){return p==vi;}, ret); break;
+        case OP_NOT_EQUAL:    queryEntryDate(q, key, [vi](Date p){return p!=vi && p!=DEFAULT_DATE_VALUE;}, ret); break;
+        case OP_LESS:         queryEntryDate(q, key, [vi](Date p){return p< vi && p!=DEFAULT_DATE_VALUE;}, ret); break;
+        case OP_LESS_EQUAL   :queryEntryDate(q, key, [vi](Date p){return p<=vi && p!=DEFAULT_DATE_VALUE;}, ret); break;
+        case OP_GREATER      :queryEntryDate(q, key, [vi](Date p){return p> vi && p!=DEFAULT_DATE_VALUE;}, ret); break;
+        case OP_GREATER_EQUAL:queryEntryDate(q, key, [vi](Date p){return p>=vi && p!=DEFAULT_DATE_VALUE;}, ret); break;
+    } 
+}
+
+void KontoTableFile::queryEntryDate(const KontoQRes& q, KontoKeyIndex key, OperatorType op, Date vl, Date vr, KontoQRes& ret) {
+    switch (op) {
+        case OP_LCRC: queryEntryDate(q, key, [vl, vr](Date p){return p>=vl && p<=vr && p!=DEFAULT_DATE_VALUE;}, ret); break;
+        case OP_LCRO: queryEntryDate(q, key, [vl, vr](Date p){return p>=vl && p< vr && p!=DEFAULT_DATE_VALUE;}, ret); break;
+        case OP_LORC: queryEntryDate(q, key, [vl, vr](Date p){return p> vl && p<=vr && p!=DEFAULT_DATE_VALUE;}, ret); break;
+        case OP_LORO: queryEntryDate(q, key, [vl, vr](Date p){return p> vl && p< vr && p!=DEFAULT_DATE_VALUE;}, ret); break;
+    } 
 }
 
 void KontoTableFile::queryCompare(const KontoQRes& from, 
@@ -1136,6 +1149,18 @@ void KontoTableFile::queryCompare(const KontoQRes& from,
                     case OP_LESS_EQUAL   :if (strcmp(v1,v2)<=0) result.push(item); break;
                     case OP_GREATER      :if (strcmp(v1,v2)> 0) result.push(item); break;
                     case OP_GREATER_EQUAL:if (strcmp(v1,v2)>=0) result.push(item); break;
+                }
+                break;
+            }
+            case KT_DATE: {
+                Date v1 = *(Date*)(ptr+pos1), v2 = *(Date*)(ptr+pos2);
+                switch (op) {
+                    case OP_EQUAL:        if (v1==v2) result.push(item); break;
+                    case OP_NOT_EQUAL:    if (v1!=v2) result.push(item); break;
+                    case OP_LESS:         if (v1< v2) result.push(item); break;
+                    case OP_LESS_EQUAL   :if (v1<=v2) result.push(item); break;
+                    case OP_GREATER      :if (v1> v2) result.push(item); break;
+                    case OP_GREATER_EQUAL:if (v1>=v2) result.push(item); break;
                 }
                 break;
             }

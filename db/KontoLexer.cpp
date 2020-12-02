@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string.h>
 #include "KontoLexer.h"
+#include "../KontoConst.h"
 
 typedef LexAutomatonNode LNode;
 typedef LNode* LNodePtr;
@@ -247,6 +248,7 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
         if (isSymbol(c) || isSpace(c)) {
             if (currentPtr->getTokenKind() != TK_UNDEFINED) {
                 currentToken = Token(currentPtr->getTokenKind());
+                currentToken.identifier = currentIdentifier;
                 return TR_PUTBACK;
             } else {
                 flagKeyword = false;
@@ -317,7 +319,7 @@ void KontoLexer::killSpaces(){
     putbackChar(c);
 }
 
-Token KontoLexer::nextToken(){
+Token KontoLexer::rawNextToken(){
     char peek = peekChar();
     if (!buffer.empty()) {Token ret = buffer.top(); buffer.pop(); return ret;}
     reset(); killSpaces();
@@ -352,6 +354,32 @@ Token KontoLexer::nextToken(){
         }
         c = getChar(); peek = peekChar();
     }
+}
+
+Token KontoLexer::toExpected(Token ret, TokenExpectation expect) {
+    switch (expect) {
+        case TE_NONE: break;
+        case TE_IDENTIFIER:
+            if (ret.tokenKind == TK_STRING_VALUE || (ret.tokenKind >= TK_KEYWORDS_BEGIN && ret.tokenKind < TK_KEYWORDS_END))
+                ret.tokenKind = TK_IDENTIFIER;
+            break;
+        case TE_INT_VALUE: 
+            if (ret.tokenKind == TK_NULL) ret.tokenKind = TK_INT_VALUE, ret.value = DEFAULT_INT_VALUE;
+            break;
+        case TE_FLOAT_VALUE: 
+            if (ret.tokenKind == TK_INT_VALUE) ret.doubleValue = ret.value, ret.tokenKind = TK_FLOAT_VALUE;
+            if (ret.tokenKind == TK_NULL) ret.doubleValue = DEFAULT_FLOAT_VALUE, ret.tokenKind = TK_FLOAT_VALUE;
+            break;
+        case TE_STRING_VALUE: 
+            if (ret.tokenKind == TK_NULL) ret.tokenKind = TK_STRING_VALUE, ret.identifier = DEFAULT_STRING_VALUE;
+            break;
+    }
+    return ret;
+}
+
+Token KontoLexer::nextToken(TokenExpectation exp) {
+    Token ret = toExpected(rawNextToken(), exp);
+    return ret;
 }
 
 void KontoLexer::addKeyword(const char* keyword, TokenKind tk) {
@@ -403,9 +431,10 @@ void KontoLexer::putback(Token token) {
     buffer.push(token);
 }
 
-Token KontoLexer::peek(){
-    Token next = nextToken();
+Token KontoLexer::peek(TokenExpectation exp){
+    Token next = rawNextToken();
     putback(next);
+    next = toExpected(next, exp);
     return next;
 }
 

@@ -15,6 +15,14 @@ const int   VALID_CHAR_OFFSET = 97;
 const char * const VALID_SYMBOLS = "(){};><=,~!+*%/|&?:[]."; // quote should not be treated as a symbol
 const int MAX_INT = 0x7fffffff;
 
+enum TokenExpectation {
+    TE_NONE,
+    TE_IDENTIFIER,
+    TE_INT_VALUE,
+    TE_FLOAT_VALUE,
+    TE_STRING_VALUE
+};
+
 enum TokenKind {
     // identifier
     TK_IDENTIFIER,
@@ -45,6 +53,9 @@ enum TokenKind {
     // error
     TK_UNDEFINED, TK_ERROR
 };
+
+const auto TK_KEYWORDS_BEGIN = TK_DATABASE;
+const auto TK_KEYWORDS_END = TK_LPAREN;
 
 struct Token{
     TokenKind tokenKind;
@@ -124,14 +135,16 @@ public:
     void addKeyword(const char* keyword, TokenKind tk);
     void addDefaultKeywords();
     void appendErrorInfo(string str);
-    Token nextToken();
+    Token nextToken(TokenExpectation exp = TE_NONE);
+    Token rawNextToken();
+    Token toExpected(Token t, TokenExpectation expect);
     void putback(Token token);
     void killSpaces();
     void clearBuffer(){
         while (!charBuffer.empty()) charBuffer.pop();
         while (!buffer.empty()) buffer.pop();
     }
-    Token peek();
+    Token peek(TokenExpectation exp = TE_NONE);
     char getChar(){
         if (lastChar == '\n' || lastChar == EOF) {currentRow++; currentColumn=1;}
         else {currentColumn++;}

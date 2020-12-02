@@ -34,6 +34,8 @@ struct KontoColumnDefinition {
                 case KT_STRING:
                     memset(defaultValue, 0, size);
                     break;
+                case KT_DATE:
+                    *(Date*)(defaultValue) = DEFAULT_DATE_VALUE;
             }
         } else {
             defaultValue = new char[size]; 
@@ -139,23 +141,29 @@ public:
     // 删除指定位置的记录。
     KontoResult deleteEntry(const KontoRPos& pos);
     // 修改指定位置的记录的int域。
-    KontoResult editEntryInt(KontoRPos& pos, KontoKeyIndex key, int datum);
+    KontoResult editEntryInt(const KontoRPos& pos, KontoKeyIndex key, int datum);
     // 修改指定位置的记录的string域。
-    KontoResult editEntryString(KontoRPos& pos, KontoKeyIndex key, char* data);
+    KontoResult editEntryString(const KontoRPos& pos, KontoKeyIndex key, const char* data);
     // 修改指定位置的记录的float域。
-    KontoResult editEntryFloat(KontoRPos& pos, KontoKeyIndex key, double datum);
+    KontoResult editEntryFloat(const KontoRPos& pos, KontoKeyIndex key, double datum);
+    
+    KontoResult editEntryDate(const KontoRPos& pos, KontoKeyIndex key, Date datum);
     // 读取指定位置记录的int域。
-    KontoResult readEntryInt(KontoRPos& pos, KontoKeyIndex key, int& out);
+    KontoResult readEntryInt(const KontoRPos& pos, KontoKeyIndex key, int& out);
     // 读取指定位置记录的string域。
-    KontoResult readEntryString(KontoRPos& pos, KontoKeyIndex key, char* out);
+    KontoResult readEntryString(const KontoRPos& pos, KontoKeyIndex key, char* out);
     // 读取指定位置记录的float域。
-    KontoResult readEntryFloat(KontoRPos& pos, KontoKeyIndex key, double& out);
+    KontoResult readEntryFloat(const KontoRPos& pos, KontoKeyIndex key, double& out);
+
+    KontoResult readEntryDate(const KontoRPos& pos, KontoKeyIndex key, Date& out);
     // 查询表中某个int域满足某条件的结果，其中判定条件由cond指定，查询结果储存在out中。
     KontoResult queryEntryInt(const KontoQRes& from, KontoKeyIndex key, function<bool(int)> cond, KontoQRes& out);
     // 查询表中某个string域满足某条件的结果，其中判定条件由cond指定，查询结果储存在out中。
     KontoResult queryEntryString(const KontoQRes& from, KontoKeyIndex key, function<bool(const char*)> cond, KontoQRes& out);
     // 查询表中某个float域满足某条件的结果，其中判定条件由cond指定，查询结果储存在out中。
     KontoResult queryEntryFloat(const KontoQRes& from, KontoKeyIndex key, function<bool(double)> cond, KontoQRes& out);
+    
+    KontoResult queryEntryDate(const KontoQRes& from, KontoKeyIndex key, function<bool(Date)> cond, KontoQRes& out);
     // 获取所有记录位置组成的向量，用于新的查询。
     KontoResult allEntries(KontoQRes& out);
     // 获取某属性对应的属性编号。
@@ -169,7 +177,7 @@ public:
     // 删除所有索引表
     void removeIndices();
     // 向所有已经关联的索引表中添加记录
-    KontoResult insertIndex(KontoRPos& pos);
+    KontoResult insertIndex(const KontoRPos& pos);
     // 从已经关联的索引表中删除记录
     KontoResult deleteIndex(const KontoRPos& pos);
     // 重新生成索引表
@@ -184,16 +192,14 @@ public:
     KontoIndex* getIndex(const vector<KontoKeyIndex>& keyIndices);
     
     KontoIndex* getPrimaryIndex();
-    // 向cout输出一条记录
-    void printRecord(char* record);
-    // 向cout输出一条记录，通过pos指定
-    void printRecord(const KontoRPos& pos, bool printPos = false);
     // 设置某一条记录的某一个int域
     KontoResult setEntryInt(char* record, KontoKeyIndex key, int datum);
     // 设置某一条记录的某一个string域
     KontoResult setEntryString(char* record, KontoKeyIndex key, const char* data);
     // 设置某一条记录的某一个float域
     KontoResult setEntryFloat(char* record, KontoKeyIndex key, double datum);
+
+    KontoResult setEntryDate(char* record, KontoKeyIndex key, Date datum);
 
     // The first two bytes will be ignored for they record id and flags
     KontoResult insertEntry(char* record, KontoRPos* pos);
@@ -202,7 +208,7 @@ public:
 
     KontoResult getKeyNames(const vector<uint>& keyIndices, vector<string>& out); 
 
-    KontoResult insertIndex(KontoRPos& pos, KontoIndex* dest);
+    KontoResult insertIndex(const KontoRPos& pos, KontoIndex* dest);
 
     void rewriteKeyDefinitions();
 
@@ -239,6 +245,7 @@ public:
     void queryEntryInt(const KontoQRes& from, KontoKeyIndex key, OperatorType op, int rvalue, KontoQRes& out);
     void queryEntryFloat(const KontoQRes& from, KontoKeyIndex key, OperatorType op, double rvalue, KontoQRes& out);
     void queryEntryString(const KontoQRes& from, KontoKeyIndex key, OperatorType op, const char* rvalue, KontoQRes& out);
+    void queryEntryDate(const KontoQRes& from, KontoKeyIndex key, OperatorType op, Date rvalue, KontoQRes& out);
 
     void queryEntryInt(const KontoQRes& from, KontoKeyIndex key, OperatorType op, 
         int lvalue, int rvalue, KontoQRes& out);
@@ -246,6 +253,8 @@ public:
         double lvalue, double rvalue, KontoQRes& out);
     void queryEntryString(const KontoQRes& from, KontoKeyIndex key, OperatorType op, 
         const char* lvalue, const char* rvalue, KontoQRes& out);
+    void queryEntryDate(const KontoQRes& from, KontoKeyIndex key, OperatorType op, 
+        Date lvalue, Date rvalue, KontoQRes& out);
 
     void queryCompare(const KontoQRes& from, KontoKeyIndex k1, KontoKeyIndex k2, 
         OperatorType op, KontoQRes& out);
@@ -253,8 +262,6 @@ public:
     void deletes(const KontoQRes& items);
 
     static bool checkDeletedFlags(uint flags);
-
-    void debugtest();
 };
 
 #endif

@@ -58,7 +58,9 @@
 			"ranges": "cpp",
 			"stdexcept": "cpp",
 			"typeinfo": "cpp",
-			"filesystem": "cpp"
+			"filesystem": "cpp",
+			"chrono": "cpp",
+			"ratio": "cpp"
 		},
 		"C_Cpp.default.cppStandard": "c++17"
 	}

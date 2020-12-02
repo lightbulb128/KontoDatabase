@@ -70,7 +70,8 @@ private:
     // 获取索引表中pos的下一条记录转存回pos，不考虑delete域
     KontoResult getPrevious(KontoIPos& pos);
     // 判断pos位置的记录是否已经被删除
-    bool isDeleted(KontoIPos& pos);
+    bool isDeleted(const KontoIPos& pos);
+    bool isNull(const KontoIPos& pos);
 public:
     // 比较两个域，通过type指定域的类型，返回值正数表示d1>d2，负数表示d1<d2，0表示两者相等
     static int compare(char* d1, char* d2, KontoKeyType type);
@@ -93,7 +94,8 @@ public:
     // lower=nullptr时，不限制左端点，upper=nullptr时，不限制右端点
     KontoResult queryInterval(char* lower, char* upper, KontoQRes& out, 
         bool lowerIncluded = true, 
-        bool upperIncluded = false);
+        bool upperIncluded = false, 
+        bool filterNull = true);
     // 关闭记录文件
     KontoResult close();
     // 重新创建索引

@@ -59,6 +59,9 @@
   * 否则先连接，然后再逐条查询
   * 连接时，按照查找表的大小排序
 * 查找比较时，比较null会有问题
+TODO:
+  EXPECTED TOKEN
+  QUERY ON NULL
 
 ## 注
 

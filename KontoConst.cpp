@@ -159,7 +159,28 @@ string value_to_string(char* value, KontoKeyType type) {
         case KT_FLOAT: 
             if (*(double*)value == DEFAULT_FLOAT_VALUE) return "NULL";
             return to_string(*(double*)value);
-        case KT_STRING: return string(value);
+        case KT_STRING: 
+            if (strcmp(value, DEFAULT_STRING_VALUE)) return "NULL";
+            return value;
+        case KT_DATE:
+            Date v = *(Date*)value;
+            if (v == DEFAULT_DATE_VALUE) return "NULL";
+            return to_string(v/31/12) + "-" + to_string((v%(31*12))/31+1) + "-" + to_string(v/31+1);
         default: return "BAD";
     }
 } 
+
+static const int DAYS_OF_MONTH[13] = {0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+bool parse_date(string str, Date& out) {
+    int ld = str.find_first_of('-'), rd = str.find_last_of('-');
+    int year = 0; for (int i=0;i<ld;i++) year = year*10+str[i]-48;
+    int month = 0; for (int i=ld+1;i<rd;i++) month = month*10+str[i]-48;
+    int day = 0; for (int i=rd+1;i<str.length();i++) day = day*10+str[i]-48;
+    if (year<0 || year>3000) return false;
+    if (month<1 || month>12) return false;
+    if (day<1 || day>DAYS_OF_MONTH[month]) return false;
+    bool run = (year%400==0 ) || (year%100!=0 && year%4==0); // 是否闰年
+    if (!run && month==2 && day==29) return false;
+    out = year*(31*12) + month*31 + day; return true;
+}

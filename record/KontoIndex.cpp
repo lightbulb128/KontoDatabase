@@ -128,19 +128,32 @@ int KontoIndex::compare(char* d1, char* d2, KontoKeyType type) {
     if (type == KT_INT) {
         int p1 = *((int*)d1);
         int p2 = *((int*)d2);
-        if (p1<p2) return -1;
-        if (p1>p2) return 1;
+        if (p1 == p2) return 0;
+        if (p1<p2 || p1==DEFAULT_INT_VALUE) return -1;
+        if (p1>p2 || p2==DEFAULT_INT_VALUE) return 1;
         return 0;
     } else if (type == KT_FLOAT) {
         double p1 = *((double*)d1);
         double p2 = *((double*)d2);
-        if (p1<p2) return -1;
-        if (p1>p2) return 1;
+        if (p1 == p2) return 0;
+        if (p1<p2 || p1==DEFAULT_FLOAT_VALUE) return -1;
+        if (p1>p2 || p2==DEFAULT_FLOAT_VALUE) return 1;
         return 0;
     } else if (type == KT_STRING) {
         char* p1 = (char*)d1;
         char* p2 = (char*)d2;
+        int res = strcmp(p1,p2);
+        if (res==0) return 0;
+        if (res<0 || strcmp(p1,DEFAULT_STRING_VALUE)==0) return -1;
+        if (res>0 || strcmp(p2,DEFAULT_STRING_VALUE)==0) return 1;
         return strcmp(p1, p2);
+    } else if (type == KT_DATE) {
+        Date p1 = *((Date*)d1);
+        Date p2 = *((Date*)d2);
+        if (p1 == p2) return 0;
+        if (p1<p2 || p1==DEFAULT_DATE_VALUE) return -1;
+        if (p1>p2 || p2==DEFAULT_DATE_VALUE) return 1;
+        return 0;
     }
     return false;
 }
@@ -463,10 +476,23 @@ KontoResult KontoIndex::queryIposLast(KontoIPos& out) {
     return queryIposLastRecur(out, 1);
 }
 
-bool KontoIndex::isDeleted(KontoIPos& q) {
+bool KontoIndex::isDeleted(const KontoIPos& q) {
     int pageBufIndex;
     KontoPage page = pmgr.getPage(fileID, q.page, pageBufIndex);
     return VI(page + POS_PAGE_DATA + (12+indexSize) * q.id + 8) & FLAGS_DELETED;
+}
+
+bool KontoIndex::isNull(const KontoIPos& q) {
+    assert(keyPositions.size() == 1);
+    int pageBufIndex;
+    KontoPage page = pmgr.getPage(fileID, q.page, pageBufIndex);
+    char* ptr = page + (12+indexSize)*q.id + 12;
+    switch (keyTypes[0]) {
+        case KT_INT: return *(int*)(ptr) == DEFAULT_INT_VALUE;
+        case KT_FLOAT: return *(double*)(ptr) == DEFAULT_FLOAT_VALUE;
+        case KT_STRING: return strcmp(DEFAULT_STRING_VALUE, ptr) == 0;
+        default: assert(false); return false;
+    }
 }
 
 KontoResult KontoIndex::remove(char* record, const KontoRPos& pos) {
@@ -634,6 +660,8 @@ void KontoIndex::debugPrintKey(char* ptr) {
                 printf("%lf", *((double*)(ptr+indexpos))); break;
             case KT_STRING:
                 printf("%s", (char*)(ptr+indexpos)); break;
+            case KT_DATE:
+                cout << value_to_string(ptr+indexpos, KT_DATE); break;
             default:
                 printf("BADTYPE");
         }
@@ -654,6 +682,8 @@ void KontoIndex::debugPrintRecord(char* ptr) {
                 printf("%lf", *((double*)(ptr+keyPositions[i]))); break;
             case KT_STRING:
                 printf("%s", (char*)(ptr+keyPositions[i])); break;
+            case KT_DATE:
+                cout << value_to_string(ptr+keyPositions[i], KT_DATE); break;
             default:
                 printf("BADTYPE");
         }
@@ -737,7 +767,7 @@ KontoResult KontoIndex::drop() {
 }
 
 KontoResult KontoIndex::queryInterval(char* lower, char* upper, KontoQRes& out,
-    bool lowerIncluded, bool upperIncluded)
+    bool lowerIncluded, bool upperIncluded, bool filterNull)
 {
     if (lower && upper) {
         int comp = compareRecords(lower, upper);
@@ -771,7 +801,7 @@ KontoResult KontoIndex::queryInterval(char* lower, char* upper, KontoQRes& out,
     KontoQRes ret;
     KontoIPos iterator = lowerIpos;
     while (true) {
-        if (!isDeleted(iterator))
+        if (!isDeleted(iterator) && (!filterNull || !isNull(iterator)))
             ret.push(getRPos(iterator));
         if (iterator == upperIpos) break;
         KontoIPos temp; getNext(iterator, temp);
