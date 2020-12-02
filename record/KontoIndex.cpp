@@ -165,7 +165,7 @@ int KontoIndex::compareRecords(char* r1, char* r2) {
     return 0;
 }
 
-void KontoIndex::setKey(char* dest, char* record, KontoRPos& pos) {
+void KontoIndex::setKey(char* dest, char* record, const KontoRPos& pos) {
     int n = keySizes.size();
     int indexPos = 0;
     for (int i=0;i<n;i++) {
@@ -334,7 +334,7 @@ KontoResult KontoIndex::split(uint pageID) {
     return KR_OK;
 }
 
-KontoResult KontoIndex::insertRecur(char* record, KontoRPos& pos, uint pageID) {
+KontoResult KontoIndex::insertRecur(char* record, const KontoRPos& pos, uint pageID) {
     //cout << "insertRecur pos=(" << pos.page << "," << pos.id << ")" << " pageid=" << pageID << endl; 
     int bufindex;
     KontoPage page = pmgr.getPage(fileID, pageID, bufindex);
@@ -381,7 +381,7 @@ KontoResult KontoIndex::insertRecur(char* record, KontoRPos& pos, uint pageID) {
     return KR_OK;
 }
 
-KontoResult KontoIndex::insert(char* record, KontoRPos& pos) {
+KontoResult KontoIndex::insert(char* record, const KontoRPos& pos) {
     return insertRecur(record, pos, 1);
 }
 
@@ -393,7 +393,7 @@ KontoResult KontoIndex::queryIposRecur(char* record, KontoIPos& out, uint pageID
     uint nodetype = VI(page + POS_PAGE_NODETYPE);
     uint childcount = VI(page + POS_PAGE_CHILDCOUNT);
     if (nodetype == NODETYPE_LEAF) {
-        uint iter = 0;
+        int iter = 0;
         while (true) {
             if (iter>=childcount) break;
             char* indexData = page+POS_PAGE_DATA+iter*(12+indexSize)+12;
@@ -406,7 +406,7 @@ KontoResult KontoIndex::queryIposRecur(char* record, KontoIPos& out, uint pageID
         out = KontoIPos(pageID, iter);
         return KR_OK;
     } else {
-        uint iter = 0;
+        int iter = 0;
         while (true) {
             if (iter>=childcount) break;
             char* indexData = page + POS_PAGE_DATA + iter*(4+indexSize)+4;
@@ -469,7 +469,7 @@ bool KontoIndex::isDeleted(KontoIPos& q) {
     return VI(page + POS_PAGE_DATA + (12+indexSize) * q.id + 8) & FLAGS_DELETED;
 }
 
-KontoResult KontoIndex::remove(char* record, KontoRPos& pos) {
+KontoResult KontoIndex::remove(char* record, const KontoRPos& pos) {
     KontoIPos query;
     KontoResult qres = queryIpos(record, query, true);
     if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
@@ -531,7 +531,7 @@ KontoResult KontoIndex::queryE(char* record, KontoRPos& out) {
         qres = getPrevious(query); 
         if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
     }
-    char* buffer = new char[indexSize];
+    char buffer[indexSize];
     int pageBufIndex;
     KontoPage page = pmgr.getPage(fileID, query.page, pageBufIndex);
     page += POS_PAGE_DATA + query.id * (12 + indexSize) + 12;
@@ -617,6 +617,7 @@ KontoResult KontoIndex::getPrevious(KontoIPos& pos) {
 
 KontoResult KontoIndex::close() {
     pmgr.closeFile(fileID);
+    pmgr.getFileManager().closeFile(fileID);
     return KR_OK;
 }
 
@@ -776,7 +777,7 @@ KontoResult KontoIndex::queryInterval(char* lower, char* upper, KontoQRes& out,
         KontoIPos temp; getNext(iterator, temp);
         iterator = temp;
     }
-    ret.sort();
+    //ret.sort();
     out = ret;
     return KR_OK;
 }

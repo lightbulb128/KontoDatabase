@@ -18,20 +18,6 @@ string type_to_string(KontoKeyType type, int size) {
     }
 }
 
-string value_to_string(char* value, KontoKeyType type) {
-    if (value == nullptr) return "";
-    switch (type) {
-        case KT_INT: 
-            if (*(int*)value == DEFAULT_INT_VALUE) return "NULL";
-            return to_string(*(int*)value);
-        case KT_FLOAT: 
-            if (*(double*)value == DEFAULT_FLOAT_VALUE) return "NULL";
-            return to_string(*(double*)value);
-        case KT_STRING: return string(value);
-        default: return "BAD";
-    }
-} 
-
 ProcessStatementResult KontoTerminal::err(string message) {
     cout << TABS[1] << message << endl;
     return PSR_ERR;
@@ -440,6 +426,9 @@ ProcessStatementResult KontoTerminal::processStatement() {
                 ProcessStatementResult psr = processWheres(table, wheres);
                 if (psr == PSR_OK) debugFrom(table, wheres);
                 return psr;
+            } else if (cur.tokenKind == TK_STRING_VALUE) {
+                cout << TABS[1] << "DEBUG ECHO: " << cur.identifier << endl;
+                return PSR_OK;
             }
         }
 
@@ -908,7 +897,6 @@ void KontoTerminal::debugIndex(string idname) {
     KontoTableFile::loadFile(currentDatabase + "/" + ptr->table, &handle);
     handle->debugIndex(ptr->cols);
     handle->close();
-    saveIndices();
 }
 
 void KontoTerminal::debugIndex() {
@@ -951,6 +939,7 @@ uint KontoTerminal::getColumnIndex(string table, string col, KontoKeyType& type)
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
     uint ret;
     KontoResult res = handle->getKeyIndex(col.c_str(), ret);
+    if (res == KR_OK) type = handle->keys[ret].type;
     handle->close();
     if (res == KR_OK) return ret;
     else return -1;
@@ -985,7 +974,7 @@ ProcessStatementResult KontoTerminal::processWhereTerm(const vector<string>& tab
         }
         if (!flag) return err("where: No column called " + cur.identifier);
     } else {
-        lexer.nextToken();
+        lexer.nextToken(); peek = lexer.nextToken();
         int res = getColumnIndex(cur.identifier, peek.identifier, keytype);
         if (res==-1) return err("where: No column called " + peek.identifier + " in " + cur.identifier);
         out.ltable = cur.identifier;
@@ -1124,6 +1113,7 @@ ProcessStatementResult KontoTerminal::processWheres(const vector<string>& tables
 }
 
 KontoQRes KontoTerminal::queryWhere(const KontoWhere& where) {
+    //cout << "queryWhere "; printWhere(where); cout << endl; 
     assert(where.type != WT_CROSS);
     KontoTableFile* handle; 
     KontoQRes ret, tmp;
@@ -1132,6 +1122,7 @@ KontoQRes KontoTerminal::queryWhere(const KontoWhere& where) {
         vector<uint> list = single_uint_vector(where.lid);
         KontoIndex* index = handle->getIndex(list);
         if (index != nullptr) {
+            //cout << "using index to query" << endl;
             char* buffer = new char[handle->getRecordSize()];
             char* lbuffer = new char[handle->getRecordSize()];
             switch (where.keytype) {
@@ -1178,38 +1169,45 @@ KontoQRes KontoTerminal::queryWhere(const KontoWhere& where) {
             delete[] buffer;
             delete[] lbuffer;
         } else {
+            //cout << "using iterator to query" << endl;
             KontoQRes q; handle->allEntries(q);
-            if (where.op < OP_LCRC) {
+            if (where.op < OP_DOUBLE) {
                 switch (where.keytype) {
-                    case KT_INT:
+                    case KT_INT: {
                         int vi = where.rvalue.value;
                         handle->queryEntryInt(q, where.lid, where.op, vi, ret);
                         break;
-                    case KT_FLOAT:
+                    }
+                    case KT_FLOAT: {
                         double vd = where.rvalue.doubleValue;
                         handle->queryEntryFloat(q, where.lid, where.op, vd, ret);
                         break;
-                    case KT_STRING:
+                    }
+                    case KT_STRING: {
                         const char* vs = where.rvalue.identifier.c_str();
                         handle->queryEntryString(q, where.lid, where.op, vs, ret);
                         break;
+                    }
                     default:
                         assert(false);
                 }
             } else {
                 switch (where.keytype) {
-                    case KT_INT:
+                    case KT_INT: {
                         int vir = where.rvalue.value, vil = where.lvalue.value;
                         handle->queryEntryInt(q, where.lid, where.op, vil, vir, ret);
                         break;
-                    case KT_FLOAT:
+                    }
+                    case KT_FLOAT: {
                         double vdr = where.rvalue.doubleValue, vdl = where.lvalue.doubleValue;
                         handle->queryEntryFloat(q, where.lid, where.op, vdl, vdr, ret);
                         break;
-                    case KT_STRING:
+                    }
+                    case KT_STRING: {
                         const char* vsr = where.rvalue.identifier.c_str(), *vsl = where.lvalue.identifier.c_str();
                         handle->queryEntryString(q, where.lid, where.op, vsl, vsr, ret);
                         break;
+                    }
                     default:
                         assert(false);
                 }
@@ -1220,6 +1218,7 @@ KontoQRes KontoTerminal::queryWhere(const KontoWhere& where) {
         handle->queryCompare(q, where.lid, where.rid, where.op, ret);
     }
     handle->close();
+    //printQRes(ret);
     return ret;
 }
 
@@ -1232,35 +1231,41 @@ KontoQRes KontoTerminal::queryWhereWithin(const KontoQRes& prev, const KontoWher
         const KontoQRes& q = prev;
         if (where.op < OP_DOUBLE) {
             switch (where.keytype) {
-                case KT_INT:
+                case KT_INT: {
                     int vi = where.rvalue.value;
                     handle->queryEntryInt(q, where.lid, where.op, vi, ret);
                     break;
-                case KT_FLOAT:
+                }
+                case KT_FLOAT: {
                     double vd = where.rvalue.doubleValue;
                     handle->queryEntryFloat(q, where.lid, where.op, vd, ret);
                     break;
-                case KT_STRING:
+                }
+                case KT_STRING: {
                     const char* vs = where.rvalue.identifier.c_str();
                     handle->queryEntryString(q, where.lid, where.op, vs, ret);
                     break;
+                }
                 default:
                     assert(false);
             }
         } else {
             switch (where.keytype) {
-                case KT_INT:
+                case KT_INT: {
                     int vir = where.rvalue.value, vil = where.lvalue.value;
                     handle->queryEntryInt(q, where.lid, where.op, vil, vir, ret);
                     break;
-                case KT_FLOAT:
+                }
+                case KT_FLOAT: {
                     double vdr = where.rvalue.doubleValue, vdl = where.lvalue.doubleValue;
                     handle->queryEntryFloat(q, where.lid, where.op, vdl, vdr, ret);
                     break;
-                case KT_STRING:
+                }
+                case KT_STRING: {
                     const char* vsr = where.rvalue.identifier.c_str(), *vsl = where.lvalue.identifier.c_str();
                     handle->queryEntryString(q, where.lid, where.op, vsl, vsr, ret);
                     break;
+                }
                 default:
                     assert(false);
             }
@@ -1272,6 +1277,7 @@ KontoQRes KontoTerminal::queryWhereWithin(const KontoQRes& prev, const KontoWher
     return ret;
 }
 
+// should guarantee that wheres are from the same table.
 void KontoTerminal::queryWheres(const vector<KontoWhere>& wheres, KontoQRes& out) {
     assert(wheres.size() > 0);
     string table = wheres[0].ltable;
@@ -1293,11 +1299,11 @@ void KontoTerminal::queryWheres(const vector<KontoWhere>& wheres, KontoQRes& out
             }
         }
     }
+    handle->close();
     out = queryWhere(wheres[first]);
     for (int i=0;i<wheres.size();i++) {
         if (i!=first) out = queryWhereWithin(out, wheres[i]);
     }
-    handle->close();
 }
 
 void KontoTerminal::queryWheres(const vector<KontoWhere>& wheres, vector<string>& tables, vector<KontoQRes>& results) {
@@ -1347,11 +1353,12 @@ void KontoTerminal::deletes(string tbname, const vector<KontoWhere>& wheres) {
     KontoQRes q; queryWheres(wheres, q);
     KontoTableFile* handle;
     KontoTableFile::loadFile(currentDatabase + "/" + tbname, &handle);
-    handle->printTable(q, true); 
+    handle->deletes(q);
     handle->close();
 }
 
 void KontoTerminal::debugFrom(string tbname, const vector<KontoWhere>& wheres) {
+    printWheres(wheres);
     for (auto& item: wheres) assert(item.type != WT_CROSS);
     KontoQRes q; queryWheres(wheres, q);
     KontoTableFile* handle;
@@ -1369,7 +1376,7 @@ ProcessStatementResult KontoTerminal::processSelect() {
         ASSERTERR(cur, TK_IDENTIFIER, "select cols: Expect identifier.");
         if (peek.tokenKind == TK_DOT) {
             selectedColumnTables.push_back(cur.identifier);
-            cur = lexer.nextToken(); 
+            cur = lexer.nextToken(); cur = lexer.nextToken();
             ASSERTERR(cur, TK_IDENTIFIER, "select cols: Expect identifier after dot.");
             selectedColumns.push_back(cur.identifier);
         } else {
@@ -1392,6 +1399,7 @@ ProcessStatementResult KontoTerminal::processSelect() {
     ProcessStatementResult psr = processWheres(fromTables, wheres);
     if (psr != PSR_OK) return psr;
     vector<KontoQRes> lists;
+    //printWheres(wheres);
     queryWheresFrom(wheres, fromTables, lists);
     typedef KontoTableFile* KontoTableFilePtr;
     uint nTables = fromTables.size();
@@ -1414,13 +1422,19 @@ ProcessStatementResult KontoTerminal::processSelect() {
                     selectedTables.push_back(j); selectedKids.push_back(kid); flag=true; break;
                 }
             }
-            if (!flag) return err("select: no such column called " + target);
+            if (!flag) {
+                for (auto& ptr : tables) ptr->close();
+                return err("select: no such column called " + target);
+            }
         } else {
             for (int j=0;j<nTables;j++) {
                 if (fromTables[j] != selectedColumnTables[i]) continue;
                 uint kid; 
                 KontoResult result = tables[j]->getKeyIndex(selectedColumns[i].c_str(), kid);
-                if (result != KR_OK) return err("select: no such column called " + selectedColumns[i] + " in " + selectedColumnTables[i]);
+                if (result != KR_OK) {
+                    for (auto& ptr : tables) ptr->close();
+                    return err("select: no such column called " + selectedColumns[i] + " in " + selectedColumnTables[i]);
+                }
                 selectedTables.push_back(j); selectedKids.push_back(kid);
                 break;
             }
@@ -1429,7 +1443,17 @@ ProcessStatementResult KontoTerminal::processSelect() {
     int nSelected = selectedKids.size();
     for (int i=0;i<nSelected;i++) {
         KontoCDef defcloned = tables[selectedTables[i]]->keys[selectedKids[i]];
-        defcloned.name = tables[selectedTables[i]]->filename + "_" + tables[selectedTables[i]]->keys[selectedKids[i]].name;
+        bool repeat = false;
+        for (int j=0;j<nSelected;j++) {
+            if (i==j) continue;
+            if (selectedColumns[j]==selectedColumns[i]) {repeat=true; break;}
+        }
+        if (repeat) {
+            string tableName = tables[selectedTables[i]]->filename;
+            int plc = tableName.find('/');
+            tableName = tableName.substr(plc+1, tableName.length() - plc-1);
+            defcloned.name = tableName + "_" + tables[selectedTables[i]]->keys[selectedKids[i]].name;
+        }
         tempTable->defineField(defcloned);
     }
     tempTable->finishDefineField();
@@ -1447,9 +1471,15 @@ ProcessStatementResult KontoTerminal::processSelect() {
     // iterate from iterators[0]
     uint iterators[nTables]; for (int i=0;i<nTables;i++) iterators[i] = 0;
     for (int i=0;i<nTables;i++) tables[i]->getDataCopied(lists[i].get(iterators[i]), buffers[i]);
+    //cout << "iterating, nwheres=" << nWheres << endl;
+    //printWheres(wheres);
     while (true) {
         bool flag = true;
         // check all wheres of WT_CROSS, whereas other types of wheres are already filtered in the lists
+        //cout << "consuling wheres" << endl;
+        for (int i=0;i<nTables;i++) if (KontoTableFile::checkDeletedFlags(VI(buffers[i] + 4))) {
+            flag = false; break;
+        }
         for (int i=0;i<nWheres;i++) {
             char* lptr = buffers[ltables[i]] + tables[ltables[i]]->keys[wheres[i].lid].position;
             char* rptr = buffers[rtables[i]] + tables[rtables[i]]->keys[wheres[i].rid].position;
@@ -1465,13 +1495,15 @@ ProcessStatementResult KontoTerminal::processSelect() {
             }
             if (!consistent) {flag=false; break;}
         }
-        if (!flag) continue;
-        // add the permutation to the results
-        for (int i=0;i<nSelected;i++) 
-            memcpy(insertBuffer + tempTable->keys[i].position, 
-                buffers[selectedTables[i]] + tables[selectedTables[i]]->keys[selectedKids[i]].position, 
-                tables[selectedTables[i]]->keys[selectedKids[i]].size);
-        tempTable->insert(insertBuffer);
+        if (flag) {
+            //cout << "adding the permutation" << endl;
+            // add the permutation to the results
+            for (int i=0;i<nSelected;i++) 
+                memcpy(insertBuffer + tempTable->keys[i].position, 
+                    buffers[selectedTables[i]] + tables[selectedTables[i]]->keys[selectedKids[i]].position, 
+                    tables[selectedTables[i]]->keys[selectedKids[i]].size);
+            tempTable->insert(insertBuffer);
+        }
         // iterate
         int t = 0; iterators[t]++;
         while (t<nTables && iterators[t]>=lists[t].size()) {
@@ -1482,10 +1514,61 @@ ProcessStatementResult KontoTerminal::processSelect() {
         }
         if (t==nTables) break;
         tables[t]->getDataCopied(lists[t].get(iterators[t]), buffers[t]);
+        //cout << "iterators: "; for (int i=0;i<nTables;i++) cout << iterators[i] << " "; cout << endl;
     }
     for (int i=0;i<nTables;i++) {
         tables[i]->close(); delete[] buffers[i];
     }
     tempTable->printTable(true, true);
     tempTable->drop();
+    return PSR_OK;
+}
+
+void KontoTerminal::printWhere(const KontoWhere& where) {
+    cout << "[where ";
+    if (where.type == WT_CONST) {
+        cout << "wt_const" << " " << "type=" << _key_type_strs[where.keytype] << " ";
+        cout << "op=" << _operator_type_strs[where.op];
+        cout << " l=" << where.ltable << "(" << where.lid << ")";
+        if (where.op < OP_DOUBLE) {
+            cout << " const=";
+            if (where.keytype == KT_INT) cout << where.rvalue.value;
+            else if (where.keytype == KT_FLOAT) cout << where.rvalue.doubleValue;
+            else if (where.keytype == KT_STRING) cout << where.rvalue.identifier;
+        } else {
+            cout << " lconst=";
+            if (where.keytype == KT_INT) cout << where.lvalue.value;
+            else if (where.keytype == KT_FLOAT) cout << where.lvalue.doubleValue;
+            else if (where.keytype == KT_STRING) cout << where.lvalue.identifier;
+            cout << " rconst=";
+            if (where.keytype == KT_INT) cout << where.rvalue.value;
+            else if (where.keytype == KT_FLOAT) cout << where.rvalue.doubleValue;
+            else if (where.keytype == KT_STRING) cout << where.rvalue.identifier;
+        }
+    }
+    else if (where.type == WT_CROSS) {
+        cout << "wt_cross" << " " << "type=" << _key_type_strs[where.keytype] << " ";
+        cout << "op=" << _operator_type_strs[where.op];
+        cout << " l=" << where.ltable << "(" << where.lid << ")";
+        cout << " r=" << where.rtable << "(" << where.rid << ")";
+    }
+    else if (where.type == WT_INNER) {
+        cout << "wt_inner" << " " << "type=" << _key_type_strs[where.keytype] << " ";
+        cout << "op=" << _operator_type_strs[where.op];
+        cout << " l=" << where.ltable << "(" << where.lid << ")";
+        cout << " r=" << where.ltable << "(" << where.rid << ")";
+    }
+    cout << "]";
+}
+
+void KontoTerminal::printWheres(const vector<KontoWhere>& wheres) {
+    cout << "[wheres] cnt = " << wheres.size() << endl;
+    for (const auto& where: wheres) {cout << TABS[1]; printWhere(where); cout << endl;}
+}
+
+void KontoTerminal::printQRes(const KontoQRes& qres) {
+    cout << "[qres] count = " << qres.size() << endl;
+    int n = qres.size();
+    for (int i=0;i<n;i++) 
+        cout << TABS[1] << "[" << i << "] @ (" << qres.get(i).page << "," << qres.get(i).id << ")" << endl;
 }

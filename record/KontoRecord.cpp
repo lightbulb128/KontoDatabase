@@ -1,5 +1,6 @@
 #include "KontoRecord.h"
 #include <string.h>
+#include <math.h>
 /*
 ### 记录文件的存储方式
 * 每页的大小位8192（个char）
@@ -58,7 +59,7 @@ KontoResult KontoTableFile::createFile(
     ret->filename = filename;
     KontoPage metapage = ret->pmgr.getPage(ret->fileID, 0, bufindex);
     strcpy(metapage+POS_FILENAME, filename.c_str());
-    ret->pageCount = VI(metapage + POS_META_PAGECOUNT) = 1;
+    ret->pageCount = VI(metapage + POS_META_PAGECOUNT) = 2;
     ret->recordCount = VI(metapage + POS_META_RECORDCOUNT) = 0;
     VI(metapage + POS_META_EXISTCOUNT) = 0;
     ret->recordSize = VI(metapage + POS_META_RECORDSIZE) = 8; // 仅包括rid和控制位两个uint 
@@ -92,7 +93,7 @@ KontoResult KontoTableFile::loadFile(
     int pos = 8;
     while (fc--) {
         KontoCDef col;
-        //域类型，域长度，域名称，域flags，默认值，若为外键还包括外键表名和列名
+        //域类型，域长度，域名称，域flags，默认值
         //域flags从最低位开始：可空、是否外键
         col.type = VIP(ptr);
         col.size = VIP(ptr);
@@ -121,8 +122,8 @@ KontoResult KontoTableFile::defineField(KontoCDef& def) {
     int pos = 8;
     while (fc--) {
         KontoCDef col;
-        //域类型，域长度，域名称，域flags，默认值，若为外键还包括外键表名和列名
-        //域flags从最低位开始：可空、是否外键
+        //域类型，域长度，域名称，域flags，默认值
+        //域flags从最低位开始：可空
         col.type = VIP(ptr);
         //cout << "type=" << col.type << endl;
         col.size = VIP(ptr);
@@ -160,6 +161,7 @@ KontoResult KontoTableFile::finishDefineField(){
 
 KontoResult KontoTableFile::close() {
     pmgr.closeFile(fileID);
+    pmgr.getFileManager().closeFile(fileID);
     for (auto indexPtr : indices) {
         indexPtr->close();
     }
@@ -192,7 +194,7 @@ KontoResult KontoTableFile::insertEntry(KontoRPos* pos) {
     return KR_OK;
 }
 
-KontoResult KontoTableFile::deleteEntry(KontoRPos& pos) {
+KontoResult KontoTableFile::deleteEntry(const KontoRPos& pos) {
     int metapid;
     KontoPage meta = pmgr.getPage(fileID, 0, metapid);
     int wrpid;
@@ -231,7 +233,6 @@ KontoResult KontoTableFile::getDataCopied(const KontoRPos& pos, char* dest) {
 }
 
 KontoResult KontoTableFile::editEntryInt(KontoRPos& pos, KontoKeyIndex key, int datum) {
-    KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_INT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -240,7 +241,6 @@ KontoResult KontoTableFile::editEntryInt(KontoRPos& pos, KontoKeyIndex key, int 
 }
 
 KontoResult KontoTableFile::readEntryInt(KontoRPos& pos, KontoKeyIndex key, int& out) {
-    KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_INT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -249,7 +249,6 @@ KontoResult KontoTableFile::readEntryInt(KontoRPos& pos, KontoKeyIndex key, int&
 }
 
 KontoResult KontoTableFile::editEntryFloat(KontoRPos& pos, KontoKeyIndex key, double datum) {
-    KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_FLOAT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -258,7 +257,6 @@ KontoResult KontoTableFile::editEntryFloat(KontoRPos& pos, KontoKeyIndex key, do
 }
 
 KontoResult KontoTableFile::readEntryFloat(KontoRPos& pos, KontoKeyIndex key, double& out) {
-    KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_FLOAT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -267,7 +265,6 @@ KontoResult KontoTableFile::readEntryFloat(KontoRPos& pos, KontoKeyIndex key, do
 }
 
 KontoResult KontoTableFile::editEntryString(KontoRPos& pos, KontoKeyIndex key, char* data) {
-    KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_STRING) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -276,7 +273,6 @@ KontoResult KontoTableFile::editEntryString(KontoRPos& pos, KontoKeyIndex key, c
 }
 
 KontoResult KontoTableFile::readEntryString(KontoRPos& pos, KontoKeyIndex key, char* out) {
-    KontoResult result = checkPosition(pos); if (result!=KR_OK) return result;
     if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
     if (keys[key].type!=KT_STRING) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
@@ -304,7 +300,9 @@ KontoResult KontoTableFile::queryEntryInt(const KontoQRes& from, KontoKeyIndex k
     if (keys[key].type!=KT_INT) return KR_TYPE_NOT_MATCHING; 
     KontoQRes result; 
     for (auto& item : from.items) {
-        char* ptr = getDataPointer(item, key, false);
+        char* ptr = getRecordPointer(item, false);
+        if (VI(ptr + 4) & FLAGS_DELETED) continue;
+        ptr += keys[key].position;
         if (cond(*((int*)ptr))) result.push(item);
     }
     result.sorted = true;
@@ -316,7 +314,9 @@ KontoResult KontoTableFile::queryEntryFloat(const KontoQRes& from, KontoKeyIndex
     if (keys[key].type!=KT_FLOAT) return KR_TYPE_NOT_MATCHING; 
     KontoQRes result;
     for (auto& item : from.items) {
-        char* ptr = getDataPointer(item, key, false);
+        char* ptr = getRecordPointer(item, false);
+        if (VI(ptr + 4) & FLAGS_DELETED) continue;
+        ptr += keys[key].position;
         if (cond(*((double*)ptr))) result.push(item);
     }
     result.sorted = true;
@@ -328,7 +328,9 @@ KontoResult KontoTableFile::queryEntryString(const KontoQRes& from, KontoKeyInde
     if (keys[key].type!=KT_STRING) return KR_TYPE_NOT_MATCHING; 
     KontoQRes result;
     for (auto& item : from.items) {
-        char* ptr = getDataPointer(item, key, false);
+        char* ptr = getRecordPointer(item, false);
+        if (VI(ptr + 4) & FLAGS_DELETED) continue;
+        ptr += keys[key].position;
         if (cond((char*)ptr)) result.push(item);
     }
     result.sorted = true;
@@ -459,7 +461,7 @@ void KontoTableFile::loadIndices() {
     for (auto indexFilename : indexFilenames) {
         KontoIndex* ptr; KontoIndex::loadIndex(
             strip_filename(indexFilename), &ptr);
-        cout << "loaded : " << indexFilename << endl;
+        //cout << "loaded : " << indexFilename << endl;
         indices.push_back(ptr);
     }
     if (hasPrimaryKey()) {
@@ -486,7 +488,7 @@ KontoResult KontoTableFile::insertIndex(KontoRPos& pos) {
     char* data = new char[recordSize];
     getDataCopied(pos, data);
     for (auto& index : indices) {
-        cout << "insert into: " << index->getFilename() << endl;
+        //cout << "insert into: " << index->getFilename() << endl;
         index->insert(data, pos);
         //index->debugPrint();
     }
@@ -502,7 +504,7 @@ KontoResult KontoTableFile::insertIndex(KontoRPos& pos, KontoIndex* dest) {
     return KR_OK;
 }
 
-KontoResult KontoTableFile::deleteIndex(KontoRPos& pos) {
+KontoResult KontoTableFile::deleteIndex(const KontoRPos& pos) {
     char* data = new char[recordSize];
     getDataCopied(pos, data);
     for (auto index : indices)
@@ -923,6 +925,7 @@ void KontoTableFile::drop() {
 KontoResult KontoTableFile::insert(char* record) {
     KontoRPos pos; 
     if (hasPrimaryKey()) {
+        assert(primaryIndex != nullptr);
         if (primaryIndex->queryE(record, pos) == KR_OK) return KR_PRIMARY_REPETITION;
     }
     insertEntry(record, &pos);
@@ -953,12 +956,16 @@ void KontoTableFile::debugIndex(const vector<uint>& cols) {
 }
 
 void KontoTableFile::printTableHeader(bool pos) {
+    if (pos) {
+        cout << "|" << SS(2, "P", true); 
+        cout << "|" << SS(4, "I", true);
+    }
     for (auto key: keys) {
         int s;
-        if (key.type == KT_INT) s = 7;
-        else if (key.type == KT_FLOAT) s = 9;
-        else if (key.type == KT_STRING) s = key.size > 20 ? 20 : (key.size-1);
-        else s = 8;
+        if (key.type == KT_INT) s = clamp(MIN_INT_WIDTH, MAX_INT_WIDTH, key.name.length());
+        else if (key.type == KT_FLOAT) s = clamp(MIN_FLOAT_WIDTH, MAX_FLOAT_WIDTH, key.name.length());
+        else if (key.type == KT_STRING) s = clamp(MIN_VARCHAR_WIDTH, MAX_VARCHAR_WIDTH, std::max((uint)key.name.length(), key.size-1));
+        else assert(false);
         cout << "|" << SS(s, key.name, true);
     }
     cout << "|" << endl;
@@ -973,23 +980,13 @@ void KontoTableFile::printTableEntry(const KontoRPos& item, bool pos) {
     getDataCopied(item, data);
     for (int i=0;i<keys.size();i++) {
         cout << "|";
-        switch (keys[i].type) {
-            case KT_INT: {
-                int vi = *((int*)(data + keys[i].position));
-                cout << SS(7, std::to_string(vi), true); break;
-            }
-            case KT_FLOAT: {
-                double vd = *((double*)(data + keys[i].position));
-                cout << SS(9, std::to_string(vd), true); break;
-            }
-            case KT_STRING: {
-                char* vs = (char*)(data+keys[i].position);
-                cout << SS(keys[i].size > 20 ? 20 : (keys[i].size-1), vs, true); break;
-            }
-            default: {
-                cout << SS(8, "unknown"); break;
-            }
-        }
+        int s;
+        const KontoCDef& key = keys[i];
+        if (key.type == KT_INT) s = clamp(MIN_INT_WIDTH, MAX_INT_WIDTH, key.name.length());
+        else if (key.type == KT_FLOAT) s = clamp(MIN_FLOAT_WIDTH, MAX_FLOAT_WIDTH, key.name.length());
+        else if (key.type == KT_STRING) s = clamp(MIN_VARCHAR_WIDTH, MAX_VARCHAR_WIDTH, std::max((uint)key.name.length(), key.size-1));
+        else assert(false);
+        cout << SS(s, value_to_string(data + keys[i].position, keys[i].type), true);
     }
     cout << "|" << endl;
     delete[] data;
@@ -1001,10 +998,6 @@ void KontoTableFile::printTable(bool meta, bool pos) {
         cout << "    recordsize=" << recordSize << endl;
         cout << "    recordcount=" << recordCount << endl;
         cout << "    pagecount=" << pageCount << endl;
-    }
-    if (pos) {
-        cout << "|" << SS(2, "P", true); 
-        cout << "|" << SS(4, "I", true);
     }
     printTableHeader(pos);
     KontoQRes q; allEntries(q); 
@@ -1108,6 +1101,7 @@ void KontoTableFile::queryCompare(const KontoQRes& from,
     uint pos1 = keys[k1].position, pos2 = keys[k2].position;
     for (auto& item : from.items) {
         char* ptr = getRecordPointer(item, false);
+        if (VI(ptr + 4) & FLAGS_DELETED) continue;
         switch (type) {
             case KT_INT: {
                 int v1 = *(int*)(ptr+pos1), v2 = *(int*)(ptr+pos2);
@@ -1149,4 +1143,15 @@ void KontoTableFile::queryCompare(const KontoQRes& from,
     }
     result.sorted = from.sorted;
     out = result;
+}
+
+void KontoTableFile::deletes(const KontoQRes& items) {
+    for (auto& item: items.items) {
+        deleteEntry(item);
+        deleteIndex(item);
+    }
+}
+
+bool KontoTableFile::checkDeletedFlags(uint flags){
+    return flags & FLAGS_DELETED;
 }

@@ -40,9 +40,9 @@ private:
     // 根据索引键的定义，比较两条数据记录
     int compareRecords(char* r1, char* r2);
     // 设置dest位置上的索引键，数据从record获得，且它在数据表中的位置由pos指定
-    void setKey(char* dest, char* record, KontoRPos& pos);
+    void setKey(char* dest, char* record, const KontoRPos& pos);
     // 递归插入，record为要插入的数据，pos为这条数据在数据表中的位置，pageID为当前索引表的页面
-    KontoResult insertRecur(char* record, KontoRPos& pos, uint pageID);
+    KontoResult insertRecur(char* record, const KontoRPos& pos, uint pageID);
     // 页表分裂
     KontoResult split(uint pageID);
     // 递归查询，record为要查询的记录数据，out为查到的结果输出，pageID为当前索引表页面，equal=true表示查询不大于record的最后一条，
@@ -82,9 +82,9 @@ public:
     // 根据键名生成索引文件名
     static string getIndexFilename(const string database, const vector<string> keyNames); 
     // 插入一条记录
-    KontoResult insert(char* record, KontoRPos& pos);
+    KontoResult insert(char* record, const KontoRPos& pos);
     // 删除一条记录
-    KontoResult remove(char* record, KontoRPos& pos);
+    KontoResult remove(char* record, const KontoRPos& pos);
     // 查询不大于key的最末一条记录，已被删除的索引节点被跳过
     KontoResult queryLE(char* record, KontoRPos& out); 
     // 查询小于key的最末一条记录，已被删除的索引节点被跳过

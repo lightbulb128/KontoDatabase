@@ -1,112 +1,134 @@
->>> >>> >>> loaded : folder/tb1.__index.id.txt
-insert into: folder/tb1.__index.id
-insert into: folder/tb1.__index.id
-insert into: folder/tb1.__index.id
->>> loaded : folder/tb1.__index.id.txt
-
-========================================================
-=============[(6) Filename: folder/tb1.__index.id]=============
-PageCount = 2
-KeyCount = 1
-IndexSize = 4
-Keyfields: 
-    [0] type=0, pos=8, size=4
-
------[PageId: 1]-----
-NodeType = 2
-ChildCount = 3
-PrevBroPage = 0, NextBroPage = 0
-ParentPage = 0
-    [0 @ 20] rpos=(1,1), del=0, key=(2)
-    [1 @ 36] rpos=(1,2), del=0, key=(4)
-    [2 @ 52] rpos=(1,0), del=0, key=(5)
-
-========== Finished ==========
-==============================
-
->>> loaded : folder/tb1.__index.id.txt
->>> loaded : folder/tb1.__index.id.txt
-loaded : folder/tb1.__index.dec.id.txt
-
-========================================================
-=============[(11) Filename: folder/tb1.__index.id]=============
-PageCount = 2
-KeyCount = 1
-IndexSize = 4
-Keyfields: 
-    [0] type=0, pos=8, size=4
-
------[PageId: 1]-----
-NodeType = 2
-ChildCount = 3
-PrevBroPage = 0, NextBroPage = 0
-ParentPage = 0
-    [0 @ 20] rpos=(1,1), del=0, key=(2)
-    [1 @ 36] rpos=(1,2), del=0, key=(4)
-    [2 @ 52] rpos=(1,0), del=0, key=(5)
-
-========== Finished ==========
-==============================
-
->>> loaded : folder/tb1.__index.id.txt
-loaded : folder/tb1.__index.dec.id.txt
-insert into: folder/tb1.__index.id
-insert into: folder/tb1.__index.dec.id
-insert into: folder/tb1.__index.id
-insert into: folder/tb1.__index.dec.id
-insert into: folder/tb1.__index.id
-insert into: folder/tb1.__index.dec.id
->>> loaded : folder/tb1.__index.id.txt
-loaded : folder/tb1.__index.dec.id.txt
-
-========================================================
-=============[(17) Filename: folder/tb1.__index.id]=============
-PageCount = 2
-KeyCount = 1
-IndexSize = 4
-Keyfields: 
-    [0] type=0, pos=8, size=4
-
------[PageId: 1]-----
-NodeType = 2
-ChildCount = 6
-PrevBroPage = 0, NextBroPage = 0
-ParentPage = 0
-    [0 @ 20] rpos=(1,3), del=0, key=(1)
-    [1 @ 36] rpos=(1,1), del=0, key=(2)
-    [2 @ 52] rpos=(1,5), del=0, key=(3)
-    [3 @ 68] rpos=(1,2), del=0, key=(4)
-    [4 @ 84] rpos=(1,0), del=0, key=(5)
-    [5 @ 100] rpos=(1,4), del=0, key=(7)
-
-========== Finished ==========
-==============================
-
->>> loaded : folder/tb1.__index.id.txt
-loaded : folder/tb1.__index.dec.id.txt
-
-========================================================
-=============[(21) Filename: folder/tb1.__index.dec.id]=============
-PageCount = 2
-KeyCount = 2
-IndexSize = 12
-Keyfields: 
-    [0] type=2, pos=33, size=8
-    [1] type=0, pos=8, size=4
-
------[PageId: 1]-----
-NodeType = 2
-ChildCount = 6
-PrevBroPage = 0, NextBroPage = 0
-ParentPage = 0
-    [0 @ 20] rpos=(1,5), del=0, key=(1.410000, 3)
-    [1 @ 44] rpos=(1,3), del=0, key=(2.710000, 1)
-    [2 @ 68] rpos=(1,1), del=0, key=(3.140000, 2)
-    [3 @ 92] rpos=(1,2), del=0, key=(4.280000, 4)
-    [4 @ 116] rpos=(1,0), del=0, key=(5.230000, 5)
-    [5 @ 140] rpos=(1,4), del=0, key=(6.220000, 7)
-
-========== Finished ==========
-==============================
-
+Compilation finished
+>>> >>> >>> >>>     DEBUG ECHO: ALTERED TABLE
+>>> >>> >>>     DEBUG ECHO: select 1
+>>> [TABLE folder/__temp]
+    recordsize=39
+    recordcount=10
+    pagecount=2
+| P|   I|       num|       str|     dec2|      dec|
+| 1|   0|         1|   abandon| 5.120000| 1.320000|
+| 1|   1|         1|     helen| 9.120000| 8.730000|
+| 1|   2|         2|       eve| 8.450000| 7.850000|
+| 1|   3|         2|      iran| 1.740000| 9.640000|
+| 1|   4|         4|      dear| 1.350000| 3.140000|
+| 1|   5|         4|     galon| 0.250000| 5.270000|
+| 1|   6|         4|    jungle| 5.620000| 1.630000|
+| 1|   7|         5|     boron| 1.420000| 4.230000|
+| 1|   8|         5|     lemon| 9.420000| 3.140000|
+| 1|   9|         7|      kite| 7.120000| 4.920000|
+>>> [TABLE folder/__temp]
+    recordsize=39
+    recordcount=10
+    pagecount=2
+| P|   I|       num|       str|     dec2|      dec|
+| 1|   0|         1|   abandon| 5.120000| 1.320000|
+| 1|   1|         5|     boron| 1.420000| 4.230000|
+| 1|   2|         4|      dear| 1.350000| 3.140000|
+| 1|   3|         2|       eve| 8.450000| 7.850000|
+| 1|   4|         4|     galon| 0.250000| 5.270000|
+| 1|   5|         1|     helen| 9.120000| 8.730000|
+| 1|   6|         2|      iran| 1.740000| 9.640000|
+| 1|   7|         4|    jungle| 5.620000| 1.630000|
+| 1|   8|         7|      kite| 7.120000| 4.920000|
+| 1|   9|         5|     lemon| 9.420000| 3.140000|
+>>>     Error: No such key named word.
+>>> >>> >>> [TABLE folder/tb2]
+    recordsize=38
+    recordcount=21
+    pagecount=2
+| P|   I|       str|       eng|       num|  nullline|
+| 1|   0|       amo|      love|         4|      NULL|
+| 1|   1|    ambulo|      walk|         6|      NULL|
+| 1|   2|      erro|    wander|         4|      NULL|
+| 1|   3|        do|      give|         8|      NULL|
+| 1|   4|      dono|     grant|         1|      NULL|
+| 1|   5|      voco|      call|         3|      NULL|
+| 1|   6|     laudo|    praise|         5|      NULL|
+| 1|   7|     pugno|     fight|         7|      NULL|
+| 1|   8|      cano|      sing|         3|      NULL|
+| 1|   9|       sum|        be|         6|      NULL|
+| 1|  10|    possum|       can|         8|      NULL|
+| 1|  11|     capio|     catch|         2|      NULL|
+| 1|  12|      duco|      lead|         3|      NULL|
+| 1|  13|      dico|       say|         5|      NULL|
+| 1|  14|      rego|      rule|         5|      NULL|
+| 1|  15|      gero|    manage|         3|      NULL|
+| 1|  16|     facio|      make|         1|      NULL|
+| 1|  17|     venio|      come|         4|      NULL|
+| 1|  18|        eo|        go|         2|      NULL|
+| 1|  19|     audio|      hear|         5|      NULL|
+| 1|  20|     video|       see|         4|      NULL|
+>>> [TABLE folder/__temp]
+    recordsize=30
+    recordcount=68
+    pagecount=2
+| P|   I|       eng|       str|
+| 1|   0|        be|     boron|
+| 1|   1|      call|      dear|
+| 1|   2|        be|      dear|
+| 1|   3|       can|      dear|
+| 1|   4|     catch|      dear|
+| 1|   5|      come|      dear|
+| 1|   6|      call|       eve|
+| 1|   7|        be|       eve|
+| 1|   8|       can|       eve|
+| 1|   9|     catch|       eve|
+| 1|  10|      come|       eve|
+| 1|  11|      call|     galon|
+| 1|  12|     fight|     galon|
+| 1|  13|        be|     galon|
+| 1|  14|       can|     galon|
+| 1|  15|     catch|     galon|
+| 1|  16|      come|     galon|
+| 1|  17|      give|     helen|
+| 1|  18|     grant|     helen|
+| 1|  19|      call|     helen|
+| 1|  20|     fight|     helen|
+| 1|  21|        be|     helen|
+| 1|  22|       can|     helen|
+| 1|  23|     catch|     helen|
+| 1|  24|      come|     helen|
+| 1|  25|        go|     helen|
+| 1|  26|      hear|     helen|
+| 1|  27|      give|      iran|
+| 1|  28|     grant|      iran|
+| 1|  29|      call|      iran|
+| 1|  30|     fight|      iran|
+| 1|  31|        be|      iran|
+| 1|  32|       can|      iran|
+| 1|  33|     catch|      iran|
+| 1|  34|      come|      iran|
+| 1|  35|        go|      iran|
+| 1|  36|      hear|      iran|
+| 1|  37|      give|    jungle|
+| 1|  38|     grant|    jungle|
+| 1|  39|      call|    jungle|
+| 1|  40|     fight|    jungle|
+| 1|  41|        be|    jungle|
+| 1|  42|       can|    jungle|
+| 1|  43|     catch|    jungle|
+| 1|  44|      come|    jungle|
+| 1|  45|        go|    jungle|
+| 1|  46|      hear|    jungle|
+| 1|  47|      give|      kite|
+| 1|  48|     grant|      kite|
+| 1|  49|      call|      kite|
+| 1|  50|     fight|      kite|
+| 1|  51|        be|      kite|
+| 1|  52|       can|      kite|
+| 1|  53|     catch|      kite|
+| 1|  54|      come|      kite|
+| 1|  55|        go|      kite|
+| 1|  56|      hear|      kite|
+| 1|  57|      give|     lemon|
+| 1|  58|     grant|     lemon|
+| 1|  59|      call|     lemon|
+| 1|  60|     fight|     lemon|
+| 1|  61|        be|     lemon|
+| 1|  62|       can|     lemon|
+| 1|  63|     catch|     lemon|
+| 1|  64|      lead|     lemon|
+| 1|  65|      come|     lemon|
+| 1|  66|        go|     lemon|
+| 1|  67|      hear|     lemon|
 >>> 

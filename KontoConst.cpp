@@ -9,6 +9,7 @@ using std::vector;
 using std::string;
 using std::cout;
 using std::endl;
+using std::to_string;
 
 void PT(int tabs, const string& prom) {
     cout << TABS[tabs] << prom << endl;
@@ -148,3 +149,17 @@ vector<string> single_string_vector(string str){
 vector<uint> single_uint_vector(uint num) {
     vector<uint> ret; ret.clear(); ret.push_back(num); return ret;
 }
+
+string value_to_string(char* value, KontoKeyType type) {
+    if (value == nullptr) return "";
+    switch (type) {
+        case KT_INT: 
+            if (*(int*)value == DEFAULT_INT_VALUE) return "NULL";
+            return to_string(*(int*)value);
+        case KT_FLOAT: 
+            if (*(double*)value == DEFAULT_FLOAT_VALUE) return "NULL";
+            return to_string(*(double*)value);
+        case KT_STRING: return string(value);
+        default: return "BAD";
+    }
+} 

@@ -78,6 +78,9 @@ public:
     void queryWheres(const vector<KontoWhere>& wheres, vector<string>& tables, vector<KontoQRes>& results); // 忽略跨表查询
     void queryWheresFrom(const vector<KontoWhere>& wheres, const vector<string>& givenTables, vector<KontoQRes>& results);
     void debugFrom(string tbname, const vector<KontoWhere>& wheres);
+    void printWhere(const KontoWhere& where);
+    void printWheres(const vector<KontoWhere>& wheres);
+    void printQRes(const KontoQRes& qres);
 
     ProcessStatementResult err(string message);
     void main();

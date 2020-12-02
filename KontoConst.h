@@ -78,16 +78,25 @@ enum OperatorType {
     OP_LCRO,
     OP_LORO
 };
+const string _operator_type_strs[10] = {"eq", "neq", "l", "le", "g", "ge", "lcrc", "lorc", "lcro", "loro"};
 
 const int OP_DOUBLE = OP_LCRC;
 
 const KontoKeyType KT_INT        = 0x0;
 const KontoKeyType KT_STRING     = 0x1;
 const KontoKeyType KT_FLOAT      = 0x2;
+const string _key_type_strs[3] = {"kint", "kstring", "kfloat"};
 
 const int DEFAULT_INT_VALUE = 0;
 const double DEFAULT_FLOAT_VALUE = std::nan("");
-const char* DEFAULT_STRING_VALUE = "";
+const char* const DEFAULT_STRING_VALUE = "";
+
+const int MAX_INT_WIDTH = 20;
+const int MIN_INT_WIDTH = 10;
+const int MAX_VARCHAR_WIDTH = 22;
+const int MIN_VARCHAR_WIDTH = 5;
+const int MAX_FLOAT_WIDTH = 20;
+const int MIN_FLOAT_WIDTH = 9;
 
 string get_filename(string filename);
 
@@ -156,5 +165,14 @@ inline void PD(charptr& dest, charptr src, uint cnt) {
 inline void PE(charptr& dest, uint cnt) {
     memset(dest, 0, cnt); dest += cnt;
 }
+
+
+inline int clamp(int min, int max, int val) {
+    if (val<min) return min;
+    if (val>max) return max;
+    return val;
+}
+
+string value_to_string(char* value, KontoKeyType type);
 
 #endif

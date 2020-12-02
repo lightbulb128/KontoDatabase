@@ -94,7 +94,7 @@ public:
     // 清空查询结果向量。
     void clear(){items.clear();}
     // 获取查询结果。
-    KontoRPos& get(int id){return items[id];}
+    const KontoRPos& get(int id) const {return items[id];}
 
     void sort();
 };
@@ -126,8 +126,6 @@ public:
     static KontoResult createFile(string filename, KontoTableFile** handle);
     // 载入已有的表文件。
     static KontoResult loadFile(string filename, KontoTableFile** handle);
-    // 检查一个记录位置是否有效。
-    KontoResult checkPosition(KontoRPos& pos);
     // 获取指向记录位置数据的指针，并指出接下来是读取还是写入。
     char* getDataPointer(const KontoRPos& pos, KontoKeyIndex key, bool write);
     // 定义表的一个属性域。
@@ -139,7 +137,7 @@ public:
     // 插入记录，插入后记录的位置通过pos返回。
     KontoResult insertEntry(KontoRPos* pos);
     // 删除指定位置的记录。
-    KontoResult deleteEntry(KontoRPos& pos);
+    KontoResult deleteEntry(const KontoRPos& pos);
     // 修改指定位置的记录的int域。
     KontoResult editEntryInt(KontoRPos& pos, KontoKeyIndex key, int datum);
     // 修改指定位置的记录的string域。
@@ -173,7 +171,7 @@ public:
     // 向所有已经关联的索引表中添加记录
     KontoResult insertIndex(KontoRPos& pos);
     // 从已经关联的索引表中删除记录
-    KontoResult deleteIndex(KontoRPos& pos);
+    KontoResult deleteIndex(const KontoRPos& pos);
     // 重新生成索引表
     KontoResult recreateIndices();
     // 获取索引表的指针
@@ -252,12 +250,9 @@ public:
     void queryCompare(const KontoQRes& from, KontoKeyIndex k1, KontoKeyIndex k2, 
         OperatorType op, KontoQRes& out);
 
-    void deletes(const KontoQRes& items) {
-        for (auto& item: items.items) {
-            deleteEntry(item);
-            deleteIndex(item);
-        }
-    }
+    void deletes(const KontoQRes& items);
+
+    static bool checkDeletedFlags(uint flags);
 
     void debugtest();
 };

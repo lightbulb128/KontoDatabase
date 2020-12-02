@@ -46,9 +46,7 @@ int test_record() {
         table->setEntryFloat(buffer, key3, sqrt(i));
         table->insertEntry(buffer, &krp[i]);
     }
-    for (int i=0;i<c;i++) {
-        cout << "i=" << i << ":"; table->printRecord(krp[i]); cout << endl;
-    }
+    table->printTable(true, true);
     table->close();
     res = KontoTableFile::loadFile("testfile", &table);
     table->debugtest();
@@ -417,6 +415,6 @@ KontoTerminal terminal;
 
 int main(){
     terminal.main();
-    //test_debug();
+    //test_alter();
     return 0;
 }
