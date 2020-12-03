@@ -149,7 +149,7 @@ ProcessStatementResult KontoTerminal::processStatement() {
                         def.type = KT_DATE; def.size = 4;
                         def.defaultValue = new char[4];
                         *(Date*)(def.defaultValue) = DEFAULT_DATE_VALUE;
-                    }
+                    } else return err("alter table add col: expect a type definition.");
                     peek = lexer.peek();
                     if (peek.tokenKind == TK_NOT) {
                         lexer.nextToken(); cur = lexer.nextToken();
@@ -239,6 +239,8 @@ ProcessStatementResult KontoTerminal::processStatement() {
                     def.type = KT_DATE; def.size = 4;
                     def.defaultValue = new char[4];
                     *(Date*)(def.defaultValue) = DEFAULT_DATE_VALUE;
+                } else {
+                    return err("alter table change: expect a type definition.");
                 }
                 peek = lexer.peek();
                 if (peek.tokenKind == TK_NOT) {
@@ -297,64 +299,7 @@ ProcessStatementResult KontoTerminal::processStatement() {
                 while (true) {
                     peek = lexer.peek();
                     if (peek.tokenKind == TK_RPAREN) break;
-                    if (peek.tokenKind == TK_IDENTIFIER) {
-                        lexer.nextToken(); 
-                        KontoCDef def("", TK_INT, 4); def.name = peek.identifier;
-                        cur = lexer.nextToken();
-                        if (cur.tokenKind == TK_INT) {
-                            def.type = KT_INT; def.size = 4;
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - int: Expect LParen.");
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - int: Expect int value.");
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - int: Expect RParen.");
-                            def.defaultValue = new char[4];
-                            *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
-                        } else if (cur.tokenKind == TK_FLOAT) {
-                            def.type = KT_FLOAT; def.size = 8;
-                            def.defaultValue = new char[8];
-                            *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
-                        } else if (cur.tokenKind == TK_VARCHAR) {
-                            def.type = KT_STRING; 
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - varchar: Expect LParen.");
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - varchar: Expect int value.");
-                            def.size = cur.value + 1;
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - varchar: Expect RParen.");
-                            def.defaultValue = new char[def.size];
-                            memset(def.defaultValue, 0, def.size);
-                        } else if (cur.tokenKind == TK_DATE) {
-                            def.type = KT_DATE; def.size = 4;
-                            def.defaultValue = new char[4];
-                            *(Date*)(def.defaultValue) = DEFAULT_DATE_VALUE;
-                        }
-                        peek = lexer.peek();
-                        if (peek.tokenKind == TK_NOT) {
-                            lexer.nextToken(); cur = lexer.nextToken();
-                            ASSERTERR(cur, TK_NULL, "create table - not: Expect keyword NULL");
-                            def.nullable = false;
-                        }
-                        peek = lexer.peek();
-                        if (peek.tokenKind == TK_DEFAULT) {
-                            lexer.nextToken(); cur = lexer.nextToken(valueTypeToExpectation(def.type));
-                            if (def.type == KT_INT) {
-                                ASSERTERR(cur, TK_INT_VALUE, "create table - default: Expect int value.");
-                                def.defaultValue = new char[4]; 
-                                *(int*)(def.defaultValue) = cur.value;
-                            } else if (def.type == KT_FLOAT) {
-                                ASSERTERR(cur, TK_FLOAT_VALUE, "create table - default: Expect double value.");
-                                def.defaultValue = new char[8];
-                                *(double*)(def.defaultValue) = cur.doubleValue;
-                            } else if (def.type == KT_STRING) {
-                                ASSERTERR(cur, TK_STRING_VALUE, "create table - default: Expect string value.");
-                                def.defaultValue = new char[def.size];
-                                strcpy(def.defaultValue, cur.identifier.c_str());
-                            } else if (def.type == KT_DATE) {
-                                ASSERTERR(cur, TK_STRING_VALUE, "alter table add col - default: Expect date string.");
-                                def.defaultValue = new char[4];
-                                Date parsed; if (!parse_date(cur.identifier, parsed)) return err("value error: Not a valid date.");
-                                *(Date*)(def.defaultValue) = parsed;
-                            }
-                        }
-                        defs.push_back(def);
-                    } else if (peek.tokenKind == TK_PRIMARY) {
+                    if (peek.tokenKind == TK_PRIMARY) {
                         lexer.nextToken(); cur = lexer.nextToken();
                         ASSERTERR(cur, TK_KEY, "create table - primary: Expect keyword KEY");
                         cur = lexer.nextToken();
@@ -407,7 +352,64 @@ ProcessStatementResult KontoTerminal::processStatement() {
                             else return err("create table - references: Expect comma or rparen.");
                         }
                         if (ncnt!=cnt) return err("create table - foreign: Reference count does not match.");
-                    }
+                    } else if (lexer.toExpected(peek, TE_IDENTIFIER).tokenKind == TK_IDENTIFIER) {
+                        lexer.nextToken(); 
+                        KontoCDef def("", TK_INT, 4); def.name = peek.identifier;
+                        cur = lexer.nextToken();
+                        if (cur.tokenKind == TK_INT) {
+                            def.type = KT_INT; def.size = 4;
+                            cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - int: Expect LParen.");
+                            cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - int: Expect int value.");
+                            cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - int: Expect RParen.");
+                            def.defaultValue = new char[4];
+                            *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
+                        } else if (cur.tokenKind == TK_FLOAT) {
+                            def.type = KT_FLOAT; def.size = 8;
+                            def.defaultValue = new char[8];
+                            *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
+                        } else if (cur.tokenKind == TK_VARCHAR) {
+                            def.type = KT_STRING; 
+                            cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - varchar: Expect LParen.");
+                            cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - varchar: Expect int value.");
+                            def.size = cur.value + 1;
+                            cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - varchar: Expect RParen.");
+                            def.defaultValue = new char[def.size];
+                            memset(def.defaultValue, 0, def.size);
+                        } else if (cur.tokenKind == TK_DATE) {
+                            def.type = KT_DATE; def.size = 4;
+                            def.defaultValue = new char[4];
+                            *(Date*)(def.defaultValue) = DEFAULT_DATE_VALUE;
+                        } else return err("create table: expect a type definition.");
+                        peek = lexer.peek();
+                        if (peek.tokenKind == TK_NOT) {
+                            lexer.nextToken(); cur = lexer.nextToken();
+                            ASSERTERR(cur, TK_NULL, "create table - not: Expect keyword NULL");
+                            def.nullable = false;
+                        }
+                        peek = lexer.peek();
+                        if (peek.tokenKind == TK_DEFAULT) {
+                            lexer.nextToken(); cur = lexer.nextToken(valueTypeToExpectation(def.type));
+                            if (def.type == KT_INT) {
+                                ASSERTERR(cur, TK_INT_VALUE, "create table - default: Expect int value.");
+                                def.defaultValue = new char[4]; 
+                                *(int*)(def.defaultValue) = cur.value;
+                            } else if (def.type == KT_FLOAT) {
+                                ASSERTERR(cur, TK_FLOAT_VALUE, "create table - default: Expect double value.");
+                                def.defaultValue = new char[8];
+                                *(double*)(def.defaultValue) = cur.doubleValue;
+                            } else if (def.type == KT_STRING) {
+                                ASSERTERR(cur, TK_STRING_VALUE, "create table - default: Expect string value.");
+                                def.defaultValue = new char[def.size];
+                                strcpy(def.defaultValue, cur.identifier.c_str());
+                            } else if (def.type == KT_DATE) {
+                                ASSERTERR(cur, TK_STRING_VALUE, "alter table add col - default: Expect date string.");
+                                def.defaultValue = new char[4];
+                                Date parsed; if (!parse_date(cur.identifier, parsed)) return err("value error: Not a valid date.");
+                                *(Date*)(def.defaultValue) = parsed;
+                            }
+                        }
+                        defs.push_back(def);
+                    } 
                     peek = lexer.peek();
                     if (peek.tokenKind == TK_COMMA) lexer.nextToken();
                     else if (peek.tokenKind == TK_RPAREN) break;
@@ -558,11 +560,11 @@ ProcessStatementResult KontoTerminal::processStatement() {
     }
 }
 
-void KontoTerminal::main() {
+void KontoTerminal::main(bool prompt) {
     
     lexer.setStream(&std::cin);
     while (true) {
-        cout << ">>> ";
+        if (prompt) cout << ">>> ";
         ProcessStatementResult psr = processStatement();
         if (psr==PSR_QUIT) break;
         std::cin.clear(); std::cin.ignore(1024, '\n'); lexer.clearBuffer();
@@ -807,7 +809,10 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + tbname, &handle);
     char* buffer = new char[handle->getRecordSize()];
+    int insertedCount = 0;
     while (true) {
+        //cout << "while true " << endl;
+        //handle->indices[0]->debugPrint();
         Token cur = lexer.nextToken();
         ASSERTERR_CLOSE(cur, TK_LPAREN, "insert values: Expect Lparen.");
         int n = handle->keys.size();
@@ -827,11 +832,13 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
                     ASSERTERR_CLOSE(cur, TK_STRING_VALUE, "insert - type error: Expect string value.");
                     if (cur.identifier.length() > key.size - 1) {handle->close(); return err("insert - value error: String too long.");}
                     handle->setEntryString(buffer, i, cur.identifier.c_str());
+                    //cout << "cur.identifier = " << cur.identifier << endl;
                     break;
                 case KT_DATE:
                     ASSERTERR_CLOSE(cur, TK_STRING_VALUE, "insert - type error: Expect date string.");
                     Date date; if (!parse_date(cur.identifier, date)) {handle->close(); return err("insert - value error: Invalid date.");}
                     handle->setEntryDate(buffer, i, date);
+                    break;
                 default:
                     return err("insert - table type error: Unidentified type.");
             }
@@ -842,7 +849,14 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
         }
         cur = lexer.nextToken();
         ASSERTERR_CLOSE(cur, TK_RPAREN, "insert values: Expect Rparen.");
-        handle->insert(buffer);
+        auto result = handle->insert(buffer);
+        if (result == KR_PRIMARY_REPETITION) {
+            handle->close();
+            return err("insert values: Repetition on primary key when inserting #" + to_string(insertedCount) + " value");
+        }
+        insertedCount ++;
+        //cout << "inserted " << insertedCount << endl;
+        //if (insertedCount%10==0) handle->printTable(true, true);
         if (lexer.peek().tokenKind == TK_SEMICOLON) break;
         cur = lexer.nextToken();
         ASSERTERR_CLOSE(cur, TK_COMMA, "insert values: Expect comma.");
@@ -1014,7 +1028,8 @@ ProcessStatementResult KontoTerminal::processWhereTerm(const vector<string>& tab
         }
         if (!flag) return err("where: No column called " + cur.identifier);
     } else {
-        lexer.nextToken(); peek = lexer.nextToken();
+        lexer.nextToken(); peek = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(peek, TK_IDENTIFIER, "where: Expect identifier after dot.");
         int res = getColumnIndex(cur.identifier, peek.identifier, keytype);
         if (res==-1) return err("where: No column called " + peek.identifier + " in " + cur.identifier);
         out.ltable = cur.identifier;
@@ -1158,7 +1173,6 @@ ProcessStatementResult KontoTerminal::processWheres(const vector<string>& tables
 }
 
 KontoQRes KontoTerminal::queryWhere(const KontoWhere& where) {
-    //cout << "queryWhere "; printWhere(where); cout << endl; 
     assert(where.type != WT_CROSS);
     KontoTableFile* handle; 
     KontoQRes ret, tmp;
@@ -1186,6 +1200,7 @@ KontoQRes KontoTerminal::queryWhere(const KontoWhere& where) {
                 case KT_DATE:
                     handle->setEntryDate(buffer, where.lid, where.rvalue.value);
                     handle->setEntryDate(lbuffer, where.lid, where.lvalue.value);
+                    break;
                 default:
                     assert(false);
                     break;
@@ -1276,7 +1291,6 @@ KontoQRes KontoTerminal::queryWhere(const KontoWhere& where) {
         handle->queryCompare(q, where.lid, where.rid, where.op, ret);
     }
     handle->close();
-    //printQRes(ret);
     return ret;
 }
 
@@ -1417,6 +1431,8 @@ void KontoTerminal::queryWheresFrom(const vector<KontoWhere>& wheres, const vect
 }
 
 void KontoTerminal::deletes(string tbname, const vector<KontoWhere>& wheres) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(tbname)) {PT(1,"Error: No such table!"); return;}
     for (auto& item: wheres) assert(item.type != WT_CROSS);
     KontoQRes q; queryWheres(wheres, q);
     KontoTableFile* handle;
@@ -1436,11 +1452,12 @@ void KontoTerminal::debugFrom(string tbname, const vector<KontoWhere>& wheres) {
 }
 
 ProcessStatementResult KontoTerminal::processSelect() {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return PSR_ERR;}
     Token cur, peek = lexer.peek();
     vector<string> selectedColumns; selectedColumns.clear();
     vector<string> selectedColumnTables; selectedColumnTables.clear();
     while (peek.tokenKind != TK_FROM) {
-        cur = lexer.nextToken(); peek = lexer.peek(TE_IDENTIFIER);
+        cur = lexer.nextToken(TE_IDENTIFIER); peek = lexer.peek();
         ASSERTERR(cur, TK_IDENTIFIER, "select cols: Expect identifier.");
         if (peek.tokenKind == TK_DOT) {
             selectedColumnTables.push_back(cur.identifier);
@@ -1459,6 +1476,7 @@ ProcessStatementResult KontoTerminal::processSelect() {
     while (true) {
         cur = lexer.nextToken(TE_IDENTIFIER);
         ASSERTERR(cur, TK_IDENTIFIER, "select from: Expect identifier.");
+        if (!hasTable(cur.identifier)) {return err("No such a table named" + cur.identifier);}
         fromTables.push_back(cur.identifier);
         cur = lexer.nextToken();
         if (cur.tokenKind == TK_WHERE) break;
@@ -1468,9 +1486,13 @@ ProcessStatementResult KontoTerminal::processSelect() {
     if (psr != PSR_OK) return psr;
     vector<KontoQRes> lists;
     //printWheres(wheres);
-    queryWheresFrom(wheres, fromTables, lists);
-    typedef KontoTableFile* KontoTableFilePtr;
     uint nTables = fromTables.size();
+    queryWheresFrom(wheres, fromTables, lists);
+    for (int i=0;i<nTables;i++) if (lists[i].size()==0) {
+        cout << TABS[1] << "The result is empty table." << endl;
+        return PSR_OK;
+    }
+    typedef KontoTableFile* KontoTableFilePtr;
     KontoTableFilePtr tables[nTables];
     for (int i=0;i<nTables;i++) 
         KontoTableFile::loadFile(currentDatabase + "/" + fromTables[i], &tables[i]);
@@ -1539,7 +1561,6 @@ ProcessStatementResult KontoTerminal::processSelect() {
     // iterate from iterators[0]
     uint iterators[nTables]; for (int i=0;i<nTables;i++) iterators[i] = 0;
     for (int i=0;i<nTables;i++) tables[i]->getDataCopied(lists[i].get(iterators[i]), buffers[i]);
-    //cout << "iterating, nwheres=" << nWheres << endl;
     //printWheres(wheres);
     while (true) {
         bool flag = true;
@@ -1587,7 +1608,7 @@ ProcessStatementResult KontoTerminal::processSelect() {
     for (int i=0;i<nTables;i++) {
         tables[i]->close(); delete[] buffers[i];
     }
-    tempTable->printTable(true, true);
+    tempTable->printTable(false, false);
     tempTable->drop();
     return PSR_OK;
 }
@@ -1649,12 +1670,14 @@ TokenExpectation KontoTerminal::valueTypeToExpectation(KontoKeyType type) {
         case KT_INT: return TE_INT_VALUE;
         case KT_FLOAT: return TE_FLOAT_VALUE;
         case KT_STRING: return TE_STRING_VALUE;
-        case KT_DATE: return TE_STRING_VALUE;
+        case KT_DATE: return TE_DATE_VALUE;
         default: assert(false); return TE_NONE;
     }
 }
 
 ProcessStatementResult KontoTerminal::processUpdate(string tbname) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return PSR_ERR;}
+    if (!hasTable(tbname)) {PT(1,"Error: No such table!"); return PSR_ERR;}
     vector<uint> kids; kids.clear();
     vector<Token> values; values.clear();
     Token cur = lexer.nextToken(), peek;

@@ -30,6 +30,7 @@ debug index index1;
 //debug index;
 */
 
+/*
 use database folder;
 create table tb1(num int(10), str varchar(10), dec float, dec2 float, primary key(num, str));
 alter table tb1 add index id1(num);
@@ -78,5 +79,44 @@ insert into tb2 values
 alter table tb2 add nullline int(10);
 debug table tb2;
 select eng, tb1.str from tb2, tb1 where tb1.str>eng;
+*/
+
+use database folder;
+create table tb1 (num int(10), dec float, str varchar(15), date date, primary key(num));
+insert into tb1 values
+    (577,1.384826,"N","1999-9-18"),
+    (971,2.665686,"7","1983-9-30"),
+    (218,0.715894,"sA","2062-6-19"),
+    (282,5.526849,"SM4t0y","2063-3-11"),
+    (995,5.039671,"WSo","2054-4-15"),
+    (993,7.869738,"F9eYBB","2046-2-27"),
+    (404,8.371366,"zVoriL","2013-6-30"),
+    (449,1.433920,"GzU","1979-11-27"),
+    (907,5.249361,"U5z8USQ27","1988-12-20"),
+    (738,5.493544,"EnP0m1ij1G","1984-9-1"),
+    (9,3.977036,"F7eokRBBp3","2036-8-31"),
+    (774,0.929447,"xNU","1998-6-5"),
+    (963,8.114123,"Mvc","1988-12-31"),
+    (133,5.017176,"ko38JQIU","1981-9-30"),
+    (728,9.753547,"1nHOVrKxz","1986-11-17"),
+    (705,4.592062,"ViiVGr4brZ","2013-8-10"),
+    (356,1.180328,"1huKBL1zV9","2039-2-7"),
+    (982,8.577825,"Bn","1990-1-19"),
+    (219,8.916610,"BtaJ","2054-2-15"),
+    (186,0.902587,"Cd4wOPi","2023-4-28");
+debug "select 1";
+select date, str from tb1 where date > "2000-1-1";
+delete from tb1 where date > "2020-12-3";
+debug "select 2";
+select date, str from tb1 where date is not null;
+update tb1 set date=null where date<"1999-12-31";
+debug "select 3";
+select date, str from tb1 where date is not null;
+alter table tb1 add num2 int(10) not null default 12;
+update tb1 set num2=24 where str>"a";
+debug "select 4";
+select date, str, num2 from tb1 where str is not null;
+debug "select 5";
+select date, str, num2 from tb1 where str is null;
 
 quit;

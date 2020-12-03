@@ -8,6 +8,7 @@ using std::cout;
 using std::endl; 
 using std::to_string;
 
+/*
 bool isd2(int i){
     return (i/10)%10==2;
 }
@@ -410,11 +411,14 @@ int test_debug() {
     get_files("folder/__t");
     return 0;
 }
+*/
 
 KontoTerminal terminal;
 
-int main(){
-    terminal.main();
+int main(int argc, const char* argv[]){
+    bool flag = true;
+    if (argc>1 && (strcmp(argv[1], "-F"))==0) flag = false;
+    terminal.main(flag);
     //test_alter();
     return 0;
 }

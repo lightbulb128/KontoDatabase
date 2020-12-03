@@ -84,7 +84,7 @@ public:
     TokenExpectation valueTypeToExpectation(KontoKeyType type);
 
     ProcessStatementResult err(string message);
-    void main();
+    void main(bool prompt = true);
     ProcessStatementResult processStatement();
     uint getColumnIndex(string table, string col, KontoKeyType& type);
     ProcessStatementResult processWhereTerm(const vector<string>& tables, KontoWhere& out);

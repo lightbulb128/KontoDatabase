@@ -199,7 +199,7 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
                 currentToken = Token(TK_COMMA); return TR_FINISHED; break; 
             case '=':
                 if (peek=='=') {currentToken = Token(TK_EQUAL); return TR_PEEKUSED_FINISHED;} 
-                else {currentToken = Token(TK_ASSIGN); return TR_FINISHED;}
+                else {currentToken = Token(TK_EQUAL); return TR_FINISHED;}
                 break;
             case '>':
                 if (peek=='=') {currentToken = Token(TK_GREATER_EQUAL); return TR_PEEKUSED_FINISHED;}
@@ -372,6 +372,9 @@ Token KontoLexer::toExpected(Token ret, TokenExpectation expect) {
             break;
         case TE_STRING_VALUE: 
             if (ret.tokenKind == TK_NULL) ret.tokenKind = TK_STRING_VALUE, ret.identifier = DEFAULT_STRING_VALUE;
+            break;
+        case TE_DATE_VALUE:
+            if (ret.tokenKind == TK_NULL) ret.tokenKind = TK_STRING_VALUE, ret.identifier = DEFAULT_DATE_VALUE_STRING;
             break;
     }
     return ret;

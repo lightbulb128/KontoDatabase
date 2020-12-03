@@ -111,6 +111,7 @@ public:
     void debugPrintRecord(char* ptr);
     void debugPrintPage(int pageID, bool recur = true);
     void debugPrint();
+    void debugPageOne();
 };
 
 #endif

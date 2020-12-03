@@ -94,7 +94,7 @@ const int DEFAULT_INT_VALUE = 0;
 const double DEFAULT_FLOAT_VALUE = std::nan("");
 const char* const DEFAULT_STRING_VALUE = "";
 const Date DEFAULT_DATE_VALUE = 0;
-const char* const DEFAULT_DATE_VALUE_STRING = "0-0-0";
+const char* const DEFAULT_DATE_VALUE_STRING = "0-1-1";
 
 const int MAX_INT_WIDTH = 20;
 const int MIN_INT_WIDTH = 10;

@@ -93,9 +93,15 @@ public:
         return getBuf(index);
     }
 
+    uint VI(char* p){return *(uint*)p;}
+
     char* getPage(int fileID, int pageID, int& pageBuffer) {
+        //cout << "get page " << fileID << " " << pageID << endl;
         pageBuffer = getPage(fileID, pageID);
-        return access(pageBuffer);
+        char* page = access(pageBuffer);
+        //printf("%8x, %8x, %8x, %8x, %8x, %8x, %8x, %8x\n", 
+        //    VI(page), VI(page+4), VI(page+8), VI(page+12), VI(page+16), VI(page+20), VI(page+24), VI(page+28));
+        return page;
     }
 
     void markDirty(int index) {
@@ -115,7 +121,9 @@ public:
         if (dirty[index]) {
             int f, p;
             hash->getKeys(index, f, p);
-            fileManager->writePage(f, p, getBuf(index));
+            char* page = getBuf(index);
+            //cout << "write back " << f << " " << p << endl;
+            fileManager->writePage(f, p, page);
             dirty[index] = false;
         }
         replace->free(index);

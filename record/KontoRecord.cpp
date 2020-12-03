@@ -500,8 +500,11 @@ KontoResult KontoTableFile::insertIndex(const KontoRPos& pos) {
     char* data = new char[recordSize];
     getDataCopied(pos, data);
     for (auto& index : indices) {
+        //cout << "before debug print" << endl;
+        //index->debugPrint();
         //cout << "insert into: " << index->getFilename() << endl;
         index->insert(data, pos);
+        //cout << "after debug print" << endl;
         //index->debugPrint();
     }
     delete[] data;
@@ -601,7 +604,7 @@ KontoResult KontoTableFile::insertEntry(char* record, KontoRPos* out) {
     KontoRPos pos;  KontoResult res = insertEntry(&pos);
     if (res != KR_OK) return res;
     char* ptr = getRecordPointer(pos, true);
-    memcpy(ptr+8, record+8, recordSize);
+    memcpy(ptr+8, record+8, recordSize-8);
     if (out) *out = pos;
     return KR_OK;
 }
@@ -912,11 +915,15 @@ void KontoTableFile::drop() {
 KontoResult KontoTableFile::insert(char* record) {
     KontoRPos pos; 
     if (hasPrimaryKey()) {
+        assert(false);
         assert(primaryIndex != nullptr);
         if (primaryIndex->queryE(record, pos) == KR_OK) return KR_PRIMARY_REPETITION;
     }
     insertEntry(record, &pos);
+    //cout << "inserted entry, pos=" << pos.page << " " << pos.id << endl;
     insertIndex(pos);
+    //cout << "inserted index" << endl;
+    //indices[0]->debugPrint();
     return KR_OK;
 }
 
@@ -961,11 +968,12 @@ void KontoTableFile::printTableHeader(bool pos) {
 
 void KontoTableFile::printTableEntry(const KontoRPos& item, bool pos) {
     char* data = new char[getRecordSize()];
+    getDataCopied(item, data);
+    if (VI(data+4) & FLAGS_DELETED) return;
     if (pos) {
         cout << "|" << SS(2, std::to_string(item.page), true);
         cout << "|" << SS(4, std::to_string(item.id), true);
     }
-    getDataCopied(item, data);
     for (int i=0;i<keys.size();i++) {
         cout << "|";
         int s;
@@ -982,12 +990,12 @@ void KontoTableFile::printTableEntry(const KontoRPos& item, bool pos) {
 }
 
 void KontoTableFile::printTable(bool meta, bool pos) {
-    cout << "[TABLE " << filename << "]\n";
     if (meta) {
+        cout << "[TABLE " << filename << "]\n";
         cout << "    recordsize=" << recordSize << endl;
         cout << "    recordcount=" << recordCount << endl;
         cout << "    pagecount=" << pageCount << endl;
-    }
+    } else cout << "[TABLE]" << endl;
     printTableHeader(pos);
     KontoQRes q; allEntries(q); 
     for (auto& item : q.items) {
@@ -996,8 +1004,9 @@ void KontoTableFile::printTable(bool meta, bool pos) {
 }
 
 void KontoTableFile::printTable(const KontoQRes& list, bool pos) {
-    cout << "[TABLE " << filename << "]\n";
-    cout << "     querycount=" << list.size() << endl;
+    if (list.size()==0) {cout << TABS[1] << "The result is empty table."; return;}
+    //cout << "[TABLE " << filename << "]\n";
+    //cout << "     querycount=" << list.size() << endl;
     printTableHeader(pos);
     for (auto& item: list.items) {
         printTableEntry(item, pos);

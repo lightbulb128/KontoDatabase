@@ -20,7 +20,8 @@ enum TokenExpectation {
     TE_IDENTIFIER,
     TE_INT_VALUE,
     TE_FLOAT_VALUE,
-    TE_STRING_VALUE
+    TE_STRING_VALUE,
+    TE_DATE_VALUE
 };
 
 enum TokenKind {

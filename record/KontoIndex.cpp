@@ -39,8 +39,8 @@ const uint POS_PAGE_DATA        = 0x0014;
 
 const uint FLAGS_DELETED        = 0x00000001;
 
-//const uint SPLIT_UPPERBOUND     = PAGE_SIZE;
-const uint SPLIT_UPPERBOUND = 200;
+const uint SPLIT_UPPERBOUND     = 8192;
+//const uint SPLIT_UPPERBOUND = 200;
 
 KontoIndex::KontoIndex():
     pmgr(BufPageManager::getInstance()) {}
@@ -269,6 +269,7 @@ KontoResult KontoIndex::split(uint pageID) {
         //cout << "split: update parent, i = " << i << endl;
         while (VI(parentPage + POS_PAGE_DATA + i * (4+indexSize)) != pageID) i++;
         int childCount = VI(parentPage + POS_PAGE_CHILDCOUNT);
+        assert(i<childCount);
         // update
         memmove(
             parentPage + POS_PAGE_DATA + (i+2) * (4+indexSize),
@@ -283,7 +284,7 @@ KontoResult KontoIndex::split(uint pageID) {
         VI(parentPage + POS_PAGE_CHILDCOUNT) ++;
         pmgr.markDirty(parentBufIndex);
         pageCount ++; 
-        if (POS_PAGE_DATA + VI(parentPage + POS_PAGE_CHILDCOUNT) * (4+indexSize) >= SPLIT_UPPERBOUND) {
+        if (POS_PAGE_DATA + (VI(parentPage + POS_PAGE_CHILDCOUNT)+1) * (4+indexSize) >= SPLIT_UPPERBOUND) {
             //cout << "before split: page " << parentPageID << " has " << childCount+1 
             //    << " children " << endl;
             split(parentPageID);
@@ -344,7 +345,15 @@ KontoResult KontoIndex::split(uint pageID) {
     pmgr.markDirty(metaBufIndex);
     delete[] newPageKey;
     //cout << "split: finished." << endl;
+    //debugPrint();
     return KR_OK;
+}
+
+void KontoIndex::debugPageOne() {
+    int bufindex;
+    auto page = pmgr.getPage(fileID, 1, bufindex);
+        printf("%8x, %8x, %8x, %8x, %8x, %8x, %8x, %8x\n", 
+            VI(page), VI(page+4), VI(page+8), VI(page+12), VI(page+16), VI(page+20), VI(page+24), VI(page+28));
 }
 
 KontoResult KontoIndex::insertRecur(char* record, const KontoRPos& pos, uint pageID) {
@@ -353,9 +362,11 @@ KontoResult KontoIndex::insertRecur(char* record, const KontoRPos& pos, uint pag
     KontoPage page = pmgr.getPage(fileID, pageID, bufindex);
     //cout << "fileid = " << fileID << " pageid = " << pageID << endl;
     //cout << "got page = " << page << endl;
+    //cout << "bef"; debugPageOne();
     uint nodetype = VI(page + POS_PAGE_NODETYPE);
     uint childcount = VI(page + POS_PAGE_CHILDCOUNT);
     //cout << "got nodetype=" << nodetype << ", childcount=" << childcount << endl;
+    assert(nodetype == NODETYPE_INNER || nodetype == NODETYPE_LEAF);
     if (nodetype == NODETYPE_LEAF) {
         int iter = 0;
         //cout << "before iteration" << endl;
@@ -371,14 +382,18 @@ KontoResult KontoIndex::insertRecur(char* record, const KontoRPos& pos, uint pag
             page + POS_PAGE_DATA + (iter+1) * (12+indexSize), 
             page + POS_PAGE_DATA + iter * (12+indexSize), 
             (childcount - iter) * (12+indexSize));
+        //cout << "set key at " << POS_PAGE_DATA + iter * (12+indexSize) << endl;
         setKey(page + POS_PAGE_DATA + iter * (12+indexSize), record, pos);
+        //cout << "aft"; debugPageOne();
+        //cout << "childcount = " << childcount << endl;
         VI(page + POS_PAGE_CHILDCOUNT) = ++childcount;
         pmgr.markDirty(bufindex);
-        if (POS_PAGE_DATA + childcount * (12+indexSize) >= SPLIT_UPPERBOUND) { 
+        if (POS_PAGE_DATA + (childcount+1) * (12+indexSize) >= SPLIT_UPPERBOUND) { 
             //cout << "before split: page " << pageID << " has " << childcount
             //    << " children. indexsize = " << indexSize << endl; 
             split(pageID);
         }
+        //cout << "wrt"; debugPageOne();
     } else {
         int iter = 0;
         while (true) {
@@ -486,11 +501,12 @@ bool KontoIndex::isNull(const KontoIPos& q) {
     assert(keyPositions.size() == 1);
     int pageBufIndex;
     KontoPage page = pmgr.getPage(fileID, q.page, pageBufIndex);
-    char* ptr = page + (12+indexSize)*q.id + 12;
+    char* ptr = page + POS_PAGE_DATA + (12+indexSize)*q.id + 12;
     switch (keyTypes[0]) {
         case KT_INT: return *(int*)(ptr) == DEFAULT_INT_VALUE;
         case KT_FLOAT: return *(double*)(ptr) == DEFAULT_FLOAT_VALUE;
         case KT_STRING: return strcmp(DEFAULT_STRING_VALUE, ptr) == 0;
+        case KT_DATE: return *(Date*)(ptr) == DEFAULT_DATE_VALUE;
         default: assert(false); return false;
     }
 }
@@ -724,6 +740,7 @@ void KontoIndex::debugPrintPage(int pageID, bool recur) {
     printf("PrevBroPage = %d, NextBroPage = %d\n", VI(page + POS_PAGE_PREV), VI(page + POS_PAGE_NEXT));
     printf("ParentPage = %d\n", VI(page + POS_PAGE_PARENT));
     int cnt = VI(page + POS_PAGE_CHILDCOUNT);
+    assert(cnt<PAGE_SIZE);
     int type = VI(page + POS_PAGE_NODETYPE);
     for (int i=0;i<cnt;i++) {
         if (type==NODETYPE_INNER) {

@@ -160,12 +160,13 @@ string value_to_string(char* value, KontoKeyType type) {
             if (*(double*)value == DEFAULT_FLOAT_VALUE) return "NULL";
             return to_string(*(double*)value);
         case KT_STRING: 
-            if (strcmp(value, DEFAULT_STRING_VALUE)) return "NULL";
+            if (strcmp(value, DEFAULT_STRING_VALUE)==0) return "NULL";
             return value;
-        case KT_DATE:
+        case KT_DATE: {
             Date v = *(Date*)value;
             if (v == DEFAULT_DATE_VALUE) return "NULL";
-            return to_string(v/31/12) + "-" + to_string((v%(31*12))/31+1) + "-" + to_string(v/31+1);
+            return date_to_string(v);
+        }
         default: return "BAD";
     }
 } 
@@ -177,10 +178,15 @@ bool parse_date(string str, Date& out) {
     int year = 0; for (int i=0;i<ld;i++) year = year*10+str[i]-48;
     int month = 0; for (int i=ld+1;i<rd;i++) month = month*10+str[i]-48;
     int day = 0; for (int i=rd+1;i<str.length();i++) day = day*10+str[i]-48;
-    if (year<0 || year>3000) return false;
+    if (year<0 || year>8000) return false;
     if (month<1 || month>12) return false;
     if (day<1 || day>DAYS_OF_MONTH[month]) return false;
     bool run = (year%400==0 ) || (year%100!=0 && year%4==0); // 是否闰年
     if (!run && month==2 && day==29) return false;
-    out = year*(31*12) + month*31 + day; return true;
+    out = year*(31*12) + (month-1)*31 + (day-1); return true;
+}
+
+string date_to_string(Date value) {
+    int year = value/(31*12), month = (value%(31*12))/31+1, day = (value%31)+1;
+    return to_string(year) + "-" + (month<10 ? "0" : "") + to_string(month) + "-" + (day<10 ? "0" : "") + to_string(day);
 }

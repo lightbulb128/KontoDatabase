@@ -7,4 +7,4 @@ testfile.txt
 test/*
 !test/
 !test/com.txt
-!test/auto.sh
+!test/*.sh
