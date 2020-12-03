@@ -1,0 +1,82 @@
+/* // test primary key
+use database folder;
+create table tb1(num int(10));
+insert into tb1 values (50),(20),(40);
+debug table tb1;
+alter table tb1 add str1 varchar(10) default "hello";
+debug table tb1;
+insert into tb1 values(30,"nothing"),(10,"is"),(60,"true");
+debug table tb1;
+alter table tb1 add primary key(num);
+debug primary tb1;
+alter table tb1 add float1 float not null default 3.1415;
+debug table tb1;
+debug primary tb1;
+alter table tb1 drop num;
+debug table tb1;
+debug primary tb1;
+*/
+
+/*
+use database folder;
+create table tb1(id int(10), str varchar(20), dec float, primary key (id));
+insert into tb1 values (5, "alice", 5.23), (2, "bob", 3.14), (4, "cindy", 4.28);
+debug primary tb1;
+alter table tb1 add index index1(dec, id);
+debug primary tb1;
+insert into tb1 values (1, "david", 2.71), (7, "eric", 6.22), (3, "frank", 1.41);
+debug primary tb1;
+debug index index1;
+//debug index;
+*/
+
+use database folder;
+create table tb1(num int(10), str varchar(10), dec float, dec2 float, primary key(num, str));
+alter table tb1 add index id1(num);
+debug "ALTERED TABLE";
+insert into tb1 values 
+    (1, "abandon", 1.32, 5.12),
+    (5, "boron", 4.23, 1.42),
+    (3, "clone", 6.23, 6.35),
+    (4, "dear", 3.14, 1.35),
+    (2, "eve", 7.85, 8.45),
+    (3, "freeze", 1.74, 6.23),
+    (4, "galon", 5.27, 0.25),
+    (1, "helen", 8.73, 9.12),
+    (2, "iran", 9.64, 1.74),
+    (4, "jungle", 1.63, 5.62),
+    (7, "kite", 4.92, 7.12),
+    (5, "lemon", 3.14, 9.42),
+    (3, "mice", 5.12, 1.46);
+delete from tb1 where num=3;
+debug "select 1";
+select num, str, tb1.dec2, tb1.dec from tb1 where num>=1;
+select num, str, tb1.dec2, tb1.dec from tb1 where dec>=0.01;
+create table tb2(str varchar(10), eng varchar(10), num int(10), primary key(word));
+insert into tb2 values
+    ("amo", "love", 4),
+    ("ambulo", "walk", 6),
+    ("erro", "wander", 4),
+    ("do", "give", 8),
+    ("dono", "grant", 1),
+    ("voco", "call", 3),
+    ("laudo", "praise", 5),
+    ("pugno", "fight", 7),
+    ("cano", "sing", 3),
+    ("sum", "be", 6),
+    ("possum", "can", 8),
+    ("capio", "catch", 2),
+    ("duco", "lead", 3),
+    ("dico", "say", 5),
+    ("rego", "rule", 5),
+    ("gero", "manage", 3),
+    ("facio", "make", 1),
+    ("venio", "come", 4),
+    ("eo", "go", 2),
+    ("audio", "hear", 5),
+    ("video", "see", 4);
+alter table tb2 add nullline int(10);
+debug table tb2;
+select eng, tb1.str from tb2, tb1 where tb1.str>eng;
+
+quit;

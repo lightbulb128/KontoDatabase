@@ -5,3 +5,6 @@ test.out
 testfile.txt
 .vscode/
 test/*
+!test/
+!test/com.txt
+!test/auto.sh
