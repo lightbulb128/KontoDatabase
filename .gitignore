@@ -8,4 +8,5 @@ test/*
 !test/
 !test/com.txt
 !test/*.sh
+!test/comr.txt
 build/
