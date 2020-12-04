@@ -36,7 +36,7 @@ enum TokenKind {
     TK_UPDATE, TK_SET, TK_SELECT, TK_IS, TK_INT, TK_VARCHAR,
     TK_DEFAULT, TK_CONSTRAINT, TK_CHANGE, TK_ALTER, TK_ADD, TK_RENAME,
     TK_DESC, TK_INDEX, TK_AND, TK_DATE, TK_FLOAT, TK_FOREIGN,
-    TK_REFERENCES, TK_QUIT, TK_DEBUG,
+    TK_REFERENCES, TK_QUIT, TK_DEBUG, TK_ECHO, TK_TABLES,
     // symbols
     TK_LPAREN, TK_RPAREN, TK_LBRACE, TK_RBRACE, TK_SEMICOLON, 
     TK_COMMA, 
@@ -106,6 +106,7 @@ private:
     bool isFloat;
     bool isString;
     bool isNegative;
+    char quoteType;
     string currentIdentifier;
     int currentLength;
     std::istream* stream;

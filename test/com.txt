@@ -81,6 +81,7 @@ debug table tb2;
 select eng, tb1.str from tb2, tb1 where tb1.str>eng;
 */
 
+/*
 use database folder;
 create table tb1 (num int(10), dec float, str varchar(15), date date, primary key(num));
 insert into tb1 values
@@ -118,5 +119,87 @@ debug "select 4";
 select date, str, num2 from tb1 where str is not null;
 debug "select 5";
 select date, str, num2 from tb1 where str is null;
+*/
+
+/*
+debug "trying one col foreign key";
+use database folder;
+create table tb1 (num int(10));
+insert into tb1 values (1),(3),(2);
+create table tb2 (num int(10), fk int(10));
+alter table tb2 add constraint fk1 foreign key (fk) references tb1(num);
+show table tb2;
+debug "insert succeed";
+insert into tb2 values (10,2);
+debug "insert fail";
+insert into tb2 values (10,4);
+alter table tb1 add str varchar(10) default "ok";
+alter table tb1 drop num;
+debug table tb1;
+insert into tb2 values(10,10);
+debug table tb2;
+*/
+
+/*
+debug "trying two col foreign key";
+use database folder;
+create table tb1 (num1 int(10), num2 int(10));
+create table tb2 (num1 int(10), num2 int(10), foreign key (num1, num2) references tb1(num1, num2));
+insert into tb1 values (1,1), (2,2);
+show table tb2;
+debug "insert 1";
+insert into tb2 values (1,1);
+debug "insert 2";
+insert into tb2 values (1,2);
+debug "insert 3";
+insert into tb2 values (3,3);
+debug "insert 4";
+insert into "tb2" values (NULL, NULL);
+debug table tb2;
+*/
+
+/*
+debug "trying foregin key on self"
+use database folder;
+create table tb1 (num int(10), fk int(10), primary key(num));
+alter table tb1 add constraint fkself foreign key (fk) references tb1(num);
+show table tb1;
+insert into tb1 values (1,NULL);
+debug table tb1;
+update tb1 set fk=1 where num=1;
+debug table tb1;
+*/
+
+debug "trying on select asterisk";
+use database folder;
+create table tb1 (num int(10), dec float, str varchar(15), date date, primary key(num));
+insert into tb1 values
+    (577,1.384826,"N","1999-9-18"),
+    (971,2.665686,"7","1983-9-30"),
+    (218,0.715894,"sA","2062-6-19"),
+    (282,5.526849,"SM4t0y","2063-3-11"),
+    (995,5.039671,"WSo","2054-4-15"),
+    (993,7.869738,"F9eYBB","2046-2-27"),
+    (404,8.371366,"zVoriL","2013-6-30"),
+    (449,1.433920,"GzU","1979-11-27"),
+    (907,5.249361,"U5z8USQ27","1988-12-20"),
+    (738,5.493544,"EnP0m1ij1G","1984-9-1"),
+    (9,3.977036,"F7eokRBBp3","2036-8-31"),
+    (774,0.929447,"xNU","1998-6-5"),
+    (963,8.114123,"Mvc","1988-12-31"),
+    (133,5.017176,"ko38JQIU","1981-9-30"),
+    (728,9.753547,"1nHOVrKxz","1986-11-17");
+create table tb2 (num int(10), dec float, str varchar(15), date date, primary key(num));
+insert into tb2 values
+    (1922716,8248.299662,"M8QGT","1294-8-17"),
+    (7141362,9417.324816,"nxjjoVzn8Z","1832-6-5"),
+    (6148992,1812.637878,"zEEYmD2fK","1692-5-30"),
+    (9121038,2123.524408,"8xrJBT","1327-3-3"),
+    (156018,7546.250358,"QpFK7","1383-8-6"),
+    (7841435,3699.658338,"B","2207-10-23"),
+    (2272177,2272.446091,"lF","1490-10-6"),
+    (6411118,7195.066813,"o","1573-10-6"),
+    (4779782,2705.317304,"I1Yo3W4M","2319-7-20");
+select * from tb1, tb2 where tb1.str > tb2.str;
 
 quit;

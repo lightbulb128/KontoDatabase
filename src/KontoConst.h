@@ -11,7 +11,7 @@ using std::endl;
 using std::string;
 using std::vector;
 
-#include "io/BufPageManager.h"
+#include "BufPageManager.h"
 
 typedef unsigned int uint;
 
@@ -63,7 +63,13 @@ enum KontoResult {
     KR_PRIMARY_REDECLARATION    = 0x00000400,
     KR_PRIMARY_REPETITION       = 0x00000401,
     KR_NO_PRIMARY               = 0x00000402,
-    KR_NO_SUCH_FOREIGN          = 0x00000403
+    KR_NO_SUCH_FOREIGN          = 0x00000403,
+    // ERROR ABOUT CONSTRAINTS  
+    KR_NULLABLE_FAIL            = 0x00000500,
+    KR_FOREIGN_KEY_FAIL         = 0x00000501,
+    // ERROR ABOUT FOREIGN KEY
+    KR_FOREIGN_TABLE_NONEXIST   = 0x00000502,
+    KR_FOREIGN_COLUMN_UNMATCH   = 0x00000503
 };
 
 enum OperatorType {
@@ -98,10 +104,10 @@ const char* const DEFAULT_DATE_VALUE_STRING = "0-1-1";
 
 const int MAX_INT_WIDTH = 20;
 const int MIN_INT_WIDTH = 10;
-const int MAX_VARCHAR_WIDTH = 22;
+const int MAX_VARCHAR_WIDTH = 30;
 const int MIN_VARCHAR_WIDTH = 5;
 const int MAX_FLOAT_WIDTH = 20;
-const int MIN_FLOAT_WIDTH = 9;
+const int MIN_FLOAT_WIDTH = 12;
 const int MAX_DATE_WIDTH = 20;
 const int MIN_DATE_WIDTH = 11;
 

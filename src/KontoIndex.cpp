@@ -1,5 +1,5 @@
 #include "KontoIndex.h"
-#include "../KontoConst.h"
+#include "KontoConst.h"
 #include <assert.h>
 #include <memory.h>
 
@@ -566,11 +566,14 @@ KontoResult KontoIndex::queryL(char* record, KontoRPos& out) {
 
 KontoResult KontoIndex::queryE(char* record, KontoRPos& out) {
     KontoIPos query;
+    //cout << "before qipos" << endl;
     KontoResult qres = queryIpos(record, query, true);
     if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
+    //cout << "before while" << endl;
     while (true) {
         if (!isDeleted(query)) break;
         qres = getPrevious(query); 
+        //cout << "qres = " << query.page << " " << query.id << endl;
         if (qres == KR_NOT_FOUND) return KR_NOT_FOUND;
     }
     char buffer[indexSize];
@@ -593,7 +596,7 @@ KontoResult KontoIndex::getNext(KontoIPos& pos, KontoIPos& out) {
     if (id>=VI(page + POS_PAGE_CHILDCOUNT)-1) {
         while (VI(page + POS_PAGE_NEXT) == 0) {
             pageID = VI(page + POS_PAGE_PARENT);
-            if (pageID == 0) return KR_LAST_IPOS;
+            if (pageID == 0) return KR_NOT_FOUND;
             page = pmgr.getPage(fileID, pageID, pageBufIndex);
             //cout << "upjump " << pageID << endl;
         }
@@ -622,7 +625,7 @@ KontoResult KontoIndex::getPrevious(KontoIPos& pos, KontoIPos& out) {
     if (id==0) {
         while (VI(page + POS_PAGE_PREV) == 0) {
             pageID = VI(page + POS_PAGE_PARENT);
-            if (pageID == 0) return KR_LAST_IPOS;
+            if (pageID == 0) return KR_NOT_FOUND;
             page = pmgr.getPage(fileID, pageID, pageBufIndex);
             //cout << "upjump " << pageID << endl;
         }

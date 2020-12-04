@@ -1,7 +1,7 @@
 #ifndef __FILE_MANAGER_H__
 #define __FILE_MANAGER_H__
 
-#include "../constants.h"
+#include "constants.h"
 #include <cstdio>
 #include <cassert>
 #include <unistd.h>

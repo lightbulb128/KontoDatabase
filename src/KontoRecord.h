@@ -1,7 +1,7 @@
 #ifndef KONTORECORD_H
 #define KONTORECORD_H
 
-#include "../KontoConst.h"
+#include "KontoConst.h"
 #include "KontoIndex.h"
 #include <vector>
 #include <string>
@@ -260,6 +260,10 @@ public:
         OperatorType op, KontoQRes& out);
 
     void deletes(const KontoQRes& items);
+
+    KontoResult checkLegal(char* record, uint checkSingle = -1);
+
+    KontoResult checkForeignKey(char* record, const vector<uint> cols, const string& tableName, const vector<string>& foreignNames);
 
     static bool checkDeletedFlags(uint flags);
 };

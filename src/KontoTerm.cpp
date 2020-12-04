@@ -30,6 +30,9 @@ ProcessStatementResult KontoTerminal::processStatement() {
     while (cur.tokenKind == TK_SEMICOLON) cur = lexer.nextToken();
     switch (cur.tokenKind) {
 
+        case TK_EOF:
+            return PSR_QUIT;
+
         case TK_ALTER: {
             cur = lexer.nextToken();
             ASSERTERR(cur, TK_TABLE, "alter: Expect keyword TABLE.");
@@ -100,6 +103,7 @@ ProcessStatementResult KontoTerminal::processStatement() {
                         else if (cur.tokenKind == TK_RPAREN) break;
                         else return err("alter table add constraint - references: Expect comma or rparen.");
                     }
+                    lexer.nextToken();
                     if (ncnt!=cnt) return err("alter table add constraint - foreign: Reference count does not match.");
                     alterAddForeignKey(table, fkname, foreigns, foreignTable, foreignName);
                     return PSR_OK;
@@ -351,7 +355,10 @@ ProcessStatementResult KontoTerminal::processStatement() {
                             else if (cur.tokenKind == TK_RPAREN) break;
                             else return err("create table - references: Expect comma or rparen.");
                         }
+                        lexer.nextToken();
                         if (ncnt!=cnt) return err("create table - foreign: Reference count does not match.");
+                        foreigns.push_back(cols);
+                        foreignName.push_back(refs);
                     } else if (lexer.toExpected(peek, TE_IDENTIFIER).tokenKind == TK_IDENTIFIER) {
                         lexer.nextToken(); 
                         KontoCDef def("", TK_INT, 4); def.name = peek.identifier;
@@ -402,7 +409,7 @@ ProcessStatementResult KontoTerminal::processStatement() {
                                 def.defaultValue = new char[def.size];
                                 strcpy(def.defaultValue, cur.identifier.c_str());
                             } else if (def.type == KT_DATE) {
-                                ASSERTERR(cur, TK_STRING_VALUE, "alter table add col - default: Expect date string.");
+                                ASSERTERR(cur, TK_STRING_VALUE, "create table - default: Expect date string.");
                                 def.defaultValue = new char[4];
                                 Date parsed; if (!parse_date(cur.identifier, parsed)) return err("value error: Not a valid date.");
                                 *(Date*)(def.defaultValue) = parsed;
@@ -460,6 +467,10 @@ ProcessStatementResult KontoTerminal::processStatement() {
             } else if (cur.tokenKind == TK_STRING_VALUE) {
                 cout << TABS[1] << "DEBUG ECHO: " << cur.identifier << endl;
                 return PSR_OK;
+            } else if (cur.tokenKind == TK_ECHO) {
+                cur = lexer.nextToken(TE_STRING_VALUE);
+                cout << TABS[1] << "DEBUG ECHO: " << cur.identifier << endl;
+                return PSR_OK;
             }
         }
 
@@ -493,6 +504,12 @@ ProcessStatementResult KontoTerminal::processStatement() {
             } else {
                 return err("drop: Expect keyword DATABASE or TABLE.");
             }
+        }
+
+        case TK_ECHO: {
+            cur = lexer.nextToken(TE_STRING_VALUE);
+            cout << TABS[1] << "DEBUG ECHO: " << cur.identifier << endl;
+            return PSR_OK;
         }
 
         case TK_INSERT: {
@@ -531,6 +548,13 @@ ProcessStatementResult KontoTerminal::processStatement() {
                 ASSERTERR(cur, TK_IDENTIFIER, "show table: Expect identifier");
                 showTable(cur.identifier);
                 return PSR_OK;
+            } else if (peek.tokenKind == TK_TABLES) {
+                lexer.nextToken(); 
+                for (auto& table : tables) {
+                    showTable(table); 
+                    cout << endl;
+                }
+                return PSR_OK;
             } else {
                 return err("show: Expect keyword DATABASE, DATABASES or TABLE.");
             }
@@ -544,8 +568,9 @@ ProcessStatementResult KontoTerminal::processStatement() {
 
         case TK_USE: {
             Token peek = lexer.peek();
-            if (peek.tokenKind == TK_DATABASE) {
-                lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
+            if (peek.tokenKind == TK_DATABASE || peek.tokenKind == TK_IDENTIFIER) {
+                if (peek.tokenKind == TK_DATABASE) {lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);}
+                else {cur = lexer.nextToken(TE_IDENTIFIER);}
                 ASSERTERR(cur, TK_IDENTIFIER, "use database: Expect identifier");
                 useDatabase(cur.identifier);
                 return PSR_OK;
@@ -696,12 +721,12 @@ void KontoTerminal::showTable(string name) {
         for (int i=0;i<fknames.size();i++) {
             cout << TABS[2] << "FOREIGN KEY " << fknames[i] << " (";
             for (int j=0;j<cols[i].size();j++) {
-                if (i!=0) cout << ", ";
+                if (j!=0) cout << ", ";
                 cout << handle->keys[cols[i][j]].name; 
             } 
             cout << ") " << "REFERENCES " << foreignTable[i] << "(";
             for (int j=0;j<foreignName[i].size();j++) {
-                if (i!=0) cout << ", ";
+                if (j!=0) cout << ", ";
                 cout << foreignName[i][j];
             }
             cout << ")" << endl;
@@ -853,6 +878,9 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
         if (result == KR_PRIMARY_REPETITION) {
             handle->close();
             return err("insert values: Repetition on primary key when inserting #" + to_string(insertedCount) + " value");
+        } else if (result == KR_FOREIGN_KEY_FAIL) {
+            handle->close();
+            return err("insert values: Foreign key check failed for #" + to_string(insertedCount) + " value");
         }
         insertedCount ++;
         //cout << "inserted " << insertedCount << endl;
@@ -1057,7 +1085,7 @@ ProcessStatementResult KontoTerminal::processWhereTerm(const vector<string>& tab
     };
     // cur is operator
     switch (cur.tokenKind) {
-        case TK_ASSIGN: out.op = OP_EQUAL; break;
+        case TK_EQUAL: out.op = OP_EQUAL; break;
         case TK_NOT_EQUAL: out.op = OP_NOT_EQUAL; break;
         case TK_LESS: out.op = OP_LESS; break;
         case TK_LESS_EQUAL: out.op = OP_LESS_EQUAL; break;
@@ -1082,7 +1110,7 @@ ProcessStatementResult KontoTerminal::processWhereTerm(const vector<string>& tab
             }
             if (!flag) return err("where: No column called " + cur.identifier);
         } else {
-            lexer.nextToken();
+            lexer.nextToken(); peek = lexer.nextToken(TE_IDENTIFIER);
             int res = getColumnIndex(cur.identifier, peek.identifier, keytype);
             if (res==-1) return err("where: No column called " + peek.identifier + " in " + cur.identifier);
             out.rtable = cur.identifier;
@@ -1125,6 +1153,8 @@ ProcessStatementResult KontoTerminal::processWheres(const string& table, vector<
 
 ProcessStatementResult KontoTerminal::processWheres(const vector<string>& tables, vector<KontoWhere>& out) {
     out.clear();
+    Token peek = lexer.peek();
+    if (peek.tokenKind == TK_SEMICOLON) return PSR_OK;
     while (true) {
         KontoWhere term;
         ProcessStatementResult psr = processWhereTerm(tables, term);
@@ -1456,31 +1486,40 @@ ProcessStatementResult KontoTerminal::processSelect() {
     Token cur, peek = lexer.peek();
     vector<string> selectedColumns; selectedColumns.clear();
     vector<string> selectedColumnTables; selectedColumnTables.clear();
-    while (peek.tokenKind != TK_FROM) {
-        cur = lexer.nextToken(TE_IDENTIFIER); peek = lexer.peek();
-        ASSERTERR(cur, TK_IDENTIFIER, "select cols: Expect identifier.");
-        if (peek.tokenKind == TK_DOT) {
-            selectedColumnTables.push_back(cur.identifier);
-            cur = lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
-            ASSERTERR(cur, TK_IDENTIFIER, "select cols: Expect identifier after dot.");
-            selectedColumns.push_back(cur.identifier);
-        } else {
-            selectedColumns.push_back(cur.identifier);
-            selectedColumnTables.push_back("");
-        } 
-        peek = lexer.peek(); 
-        if (peek.tokenKind == TK_COMMA) lexer.nextToken();
+    bool asterisk = false;
+    if (peek.tokenKind == TK_ASTERISK) {
+        asterisk = true;
+        cur = lexer.nextToken();
+        peek = lexer.peek();
+        ASSERTERR(peek, TK_FROM, "select asterisk: Expect keyword from after asterisk.");
+    } else {
+        while (peek.tokenKind != TK_FROM) {
+            cur = lexer.nextToken(TE_IDENTIFIER); peek = lexer.peek();
+            ASSERTERR(cur, TK_IDENTIFIER, "select cols: Expect identifier.");
+            if (peek.tokenKind == TK_DOT) {
+                selectedColumnTables.push_back(cur.identifier);
+                cur = lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
+                ASSERTERR(cur, TK_IDENTIFIER, "select cols: Expect identifier after dot.");
+                selectedColumns.push_back(cur.identifier);
+            } else {
+                selectedColumns.push_back(cur.identifier);
+                selectedColumnTables.push_back("");
+            } 
+            peek = lexer.peek(); 
+            if (peek.tokenKind == TK_COMMA) lexer.nextToken();
+        }
     }
     lexer.nextToken(); 
     vector<string> fromTables; fromTables.clear();
     while (true) {
         cur = lexer.nextToken(TE_IDENTIFIER);
         ASSERTERR(cur, TK_IDENTIFIER, "select from: Expect identifier.");
-        if (!hasTable(cur.identifier)) {return err("No such a table named" + cur.identifier);}
+        if (!hasTable(cur.identifier)) {return err("No such a table named " + cur.identifier);}
         fromTables.push_back(cur.identifier);
         cur = lexer.nextToken();
-        if (cur.tokenKind == TK_WHERE) break;
+        if (cur.tokenKind == TK_WHERE || cur.tokenKind == TK_SEMICOLON) break;
     }
+    if (cur.tokenKind == TK_SEMICOLON) lexer.putback(cur);
     vector<KontoWhere> wheres;
     ProcessStatementResult psr = processWheres(fromTables, wheres);
     if (psr != PSR_OK) return psr;
@@ -1530,6 +1569,15 @@ ProcessStatementResult KontoTerminal::processSelect() {
             }
         }
     }
+    if (asterisk) {
+        for (int i=0;i<nTables;i++) 
+            for (int j=0;j<tables[i]->keys.size();j++) {
+                selectedTables.push_back(i); selectedKids.push_back(j);
+                selectedColumns.push_back(tables[i]->keys[j].name);
+                selectedColumnTables.push_back(fromTables[i]);
+            }
+    }
+    //for (int i=0;i<selectedTables.size();i++) cout << selectedTables[i] << " " << selectedKids[i] << endl;
     int nSelected = selectedKids.size();
     for (int i=0;i<nSelected;i++) {
         KontoCDef defcloned = tables[selectedTables[i]]->keys[selectedKids[i]];
@@ -1723,23 +1771,63 @@ ProcessStatementResult KontoTerminal::processUpdate(string tbname) {
     ProcessStatementResult psr = processWheres(tbname, wheres);
     if (psr != PSR_OK) return psr;
     KontoQRes qres;
+    //cout << "query wheres" << endl;
     queryWheres(wheres, qres);
+    //cout << "updating " << endl;
     KontoTableFile::loadFile(currentDatabase + "/" + tbname, &handle);
     int nQuery = qres.size();
     int nSet = values.size();
+    char buffer[handle->getRecordSize()];
     for (int i=0;i<nQuery;i++) {
         const auto& pos = qres.get(i);
         handle->deleteIndex(pos);
+        KontoResult res;
         for (int j=0;j<nSet;j++) {
+            //cout << "edit" << endl;
             switch (handle->keys[kids[j]].type) {
-                case KT_INT: handle->editEntryInt(pos, kids[j], values[j].value); break;
-                case KT_FLOAT: handle->editEntryFloat(pos, kids[j], values[j].doubleValue); break;
-                case KT_STRING: handle->editEntryString(pos, kids[j], values[j].identifier.c_str()); break;
-                case KT_DATE: handle->editEntryDate(pos, kids[j], values[j].value); break;
+                case KT_INT: 
+                    handle->getDataCopied(pos, buffer);
+                    handle->setEntryInt(buffer, kids[j], values[j].value);
+                    res = handle->checkLegal(buffer, kids[j]);
+                    if (res==KR_OK) handle->editEntryInt(pos, kids[j], values[j].value);
+                    break;
+                case KT_FLOAT:
+                    handle->getDataCopied(pos, buffer);
+                    handle->setEntryFloat(buffer, kids[j], values[j].doubleValue);
+                    res = handle->checkLegal(buffer, kids[j]);
+                    if (res==KR_OK) handle->editEntryFloat(pos, kids[j], values[j].doubleValue);
+                    break;
+                case KT_STRING: 
+                    handle->getDataCopied(pos, buffer);
+                    handle->setEntryString(buffer, kids[j], values[j].identifier.c_str());
+                    res = handle->checkLegal(buffer, kids[j]);
+                    if (res==KR_OK) handle->editEntryString(pos, kids[j], values[j].identifier.c_str());
+                    break;
+                case KT_DATE: 
+                    handle->getDataCopied(pos, buffer);
+                    handle->setEntryDate(buffer, kids[j], values[j].value);
+                    res = handle->checkLegal(buffer, kids[j]);
+                    if (res==KR_OK) handle->editEntryDate(pos, kids[j], values[j].value);
+                    break;
+            }
+            //cout << "edit fin" << endl;
+            if (res == KR_PRIMARY_REPETITION) {
+                handle->close(); 
+                return err("Error: Primary key unique constraint failed.");
+            } else if (res == KR_FOREIGN_KEY_FAIL) {
+                handle->close();
+                return err("Error: Foreign key check failed.");
             }
         }
         handle->insertIndex(pos);
     }
     handle->close();
     return PSR_OK;
+}
+
+KontoTerminal* KontoTerminal::instancePtr = nullptr;
+
+KontoTerminal* KontoTerminal::getInstance(){
+    if (instancePtr == nullptr) return instancePtr = new KontoTerminal();
+    else return instancePtr;
 }

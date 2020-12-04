@@ -1,6 +1,7 @@
 #include "KontoRecord.h"
 #include <string.h>
 #include <math.h>
+#include "KontoTerm.h"
 /*
 ### 记录文件的存储方式
 * 每页的大小位8192（个char）
@@ -913,12 +914,9 @@ void KontoTableFile::drop() {
 }
 
 KontoResult KontoTableFile::insert(char* record) {
+    KontoResult legal = checkLegal(record);
+    if (legal!=KR_OK) return legal;
     KontoRPos pos; 
-    if (hasPrimaryKey()) {
-        assert(false);
-        assert(primaryIndex != nullptr);
-        if (primaryIndex->queryE(record, pos) == KR_OK) return KR_PRIMARY_REPETITION;
-    }
     insertEntry(record, &pos);
     //cout << "inserted entry, pos=" << pos.page << " " << pos.id << endl;
     insertIndex(pos);
@@ -1188,4 +1186,131 @@ void KontoTableFile::deletes(const KontoQRes& items) {
 
 bool KontoTableFile::checkDeletedFlags(uint flags){
     return flags & FLAGS_DELETED;
+}
+
+KontoResult KontoTableFile::checkLegal(char* record, uint checkSingle) {
+    KontoRPos pos;
+    // check primary key repeat
+    if (hasPrimaryKey()) {
+        //cout << "chekc primary key" << endl;
+        assert(primaryIndex != nullptr);
+        if (primaryIndex->queryE(record, pos) == KR_OK) return KR_PRIMARY_REPETITION;
+    }
+    //cout << "checked primary key" << endl;
+    // check nullability
+    for (int i=0;i<keys.size();i++) {
+        if (checkSingle!=-1 && checkSingle!=i) continue;
+        if (keys[i].nullable) continue;
+        char* ptr = record + keys[i].position;
+        bool flag = false;
+        switch (keys[i].type) {
+            case KT_INT: flag = *(int*)(ptr) == DEFAULT_INT_VALUE; break;
+            case KT_FLOAT: flag = *(double*)(ptr) == DEFAULT_FLOAT_VALUE; break;
+            case KT_STRING: flag = strcmp(DEFAULT_STRING_VALUE, ptr) == 0; break;
+            case KT_DATE: flag = *(Date*)(ptr) == DEFAULT_DATE_VALUE; break;
+            default: assert(false); return KR_OK;
+        }
+        if (flag) return KR_NULLABLE_FAIL;
+    }
+    //cout << "checked nullability" << endl;
+    // check foreign key
+    int bufindex;
+    KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
+    char* ptr = metapage + POS_META_FOREIGNS;
+    int n = VIP(ptr); 
+    //cout << "n = " << n << endl;
+    string tableName, constraintName;
+    vector<uint> cols; vector<string> foreignNames;
+    vector<string> toDrop; toDrop.clear();
+    char* target, *tail; bool flag = false;
+    while (n--) {
+        char* bef = ptr;
+        flag = checkSingle == -1;
+        int c = VIP(ptr); cols.clear();
+        for (int i=0;i<c;i++) {
+            cols.push_back(VIP(ptr)); 
+            if (cols[cols.size()-1]==checkSingle) flag=true;
+        }
+        CS(constraintName, ptr);
+        CS(tableName, ptr);
+        for (int i=0;i<c;i++) {
+            string buffer;
+            CS(buffer, ptr);
+            foreignNames.push_back(buffer);
+        }
+        //cout << "flag = " << flag << endl;
+        if (!flag) continue;
+        KontoResult foreignCheck = checkForeignKey(record, cols, tableName, foreignNames);
+        if (foreignCheck == KR_FOREIGN_KEY_FAIL) return foreignCheck;
+        if (foreignCheck == KR_FOREIGN_TABLE_NONEXIST || foreignCheck == KR_FOREIGN_COLUMN_UNMATCH) 
+            toDrop.push_back(constraintName);
+    }
+    //cout << "checked foreign key" << endl;
+    for (auto& item : toDrop) alterDropForeignKey(item);
+    return KR_OK;
+}
+
+KontoResult KontoTableFile::checkForeignKey(char* record, const vector<uint> cols, 
+    const string& tableName, const vector<string>& foreignNames) 
+{
+    string tableDir = filename.substr(0, filename.find("/"));
+    KontoTableFile* handle; 
+    if (!file_exist(tableDir, get_filename(tableName))) return KR_FOREIGN_TABLE_NONEXIST;
+    //if (filename == tableDir + "/" + tableName) return KR_OK; // do not check self foreign-key
+    loadFile(tableDir + "/" + tableName, &handle);
+    vector<uint> foreignCols; foreignCols.clear();
+    int nCols = cols.size();
+    for (int i=0;i<nCols;i++) {
+        uint kid;
+        KontoResult res = handle->getKeyIndex(foreignNames[i].c_str(), kid);
+        if (res != KR_OK) {handle->close(); return KR_FOREIGN_COLUMN_UNMATCH;}
+        if (handle->keys[kid].type != keys[cols[i]].type) {handle->close(); return KR_FOREIGN_COLUMN_UNMATCH;}
+        foreignCols.push_back(kid);
+    }
+    handle->close();
+    KontoTerminal* term = KontoTerminal::getInstance();
+    vector<KontoWhere> wheres; wheres.clear();
+    for (int i=0;i<nCols;i++) {
+        Token rvalue = Token();
+        switch (keys[cols[i]].type) {
+            case KT_INT: 
+                rvalue.tokenKind = TK_INT_VALUE; 
+                rvalue.value = *(int*)(record+keys[cols[i]].position);
+                if (rvalue.value == DEFAULT_INT_VALUE) return KR_OK;
+                break;
+            case KT_FLOAT:
+                rvalue.tokenKind = TK_FLOAT_VALUE; 
+                rvalue.doubleValue = *(double*)(record+keys[cols[i]].position);
+                if (rvalue.doubleValue == DEFAULT_FLOAT_VALUE) return KR_OK;
+                break;
+            case KT_STRING:
+                rvalue.tokenKind = TK_STRING_VALUE; 
+                rvalue.identifier = record+keys[cols[i]].position;
+                if (rvalue.identifier == DEFAULT_STRING_VALUE) return KR_OK;
+                break;
+            case KT_DATE:
+                rvalue.tokenKind = TK_DATE_VALUE; 
+                rvalue.value = *(Date*)(record+keys[cols[i]].position);
+                if (rvalue.value == DEFAULT_DATE_VALUE) return KR_OK;
+                break;
+            default:
+                assert(false);
+        }
+        wheres.push_back(KontoWhere{
+            .type = WT_CONST,
+            .keytype = keys[cols[i]].type,
+            .op = OP_EQUAL,
+            .rvalue = rvalue,
+            .lvalue = Token(),
+            .ltable = tableName,
+            .rtable = "",
+            .lid = foreignCols[i],
+            .rid = 0,
+        });
+    }
+    KontoQRes q;
+    //term->printWheres(wheres);
+    term->queryWheres(wheres, q);
+    if (q.size() == 0) return KR_FOREIGN_KEY_FAIL;
+    return KR_OK;
 }

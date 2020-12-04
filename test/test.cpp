@@ -413,12 +413,13 @@ int test_debug() {
 }
 */
 
-KontoTerminal terminal;
+KontoTerminal* terminal;
 
 int main(int argc, const char* argv[]){
     bool flag = true;
     if (argc>1 && (strcmp(argv[1], "-F"))==0) flag = false;
-    terminal.main(flag);
+    terminal = KontoTerminal::getInstance();
+    terminal->main(flag);
     //test_alter();
     return 0;
 }

@@ -116,7 +116,7 @@ void create_directory(string str) {
 }
 
 void remove_directory(string str) {
-    std::filesystem::remove(str);
+    std::filesystem::remove_all(str);
 }
 
 bool file_exist(string dir, string file) {
@@ -128,7 +128,8 @@ vector<string> get_lines(string dir, string file) {
     vector<string> ret; ret.clear();
     while (!fin.eof()) {
         string s; fin >> s;
-        ret.push_back(s);
+        if (s!="")
+            ret.push_back(s);
     }
     fin.close();
     return ret;

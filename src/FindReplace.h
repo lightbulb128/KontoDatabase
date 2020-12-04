@@ -2,7 +2,7 @@
 #define __BUF_SEARCH_H__
 
 #include "../util/MultiList.h"
-#include "../constants.h"
+#include "constants.h"
 
 class FindReplace {
 private:

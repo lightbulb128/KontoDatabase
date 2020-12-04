@@ -1,7 +1,7 @@
 #ifndef KONTOINDEX_H
 #define KONTOINDEX_H
 
-#include "../KontoConst.h"
+#include "KontoConst.h"
 #include "KontoRecord.h"
 #include <vector>
 #include <string>

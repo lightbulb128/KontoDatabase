@@ -2,7 +2,7 @@
 #include <fstream>
 #include <string.h>
 #include "KontoLexer.h"
-#include "../KontoConst.h"
+#include "KontoConst.h"
 
 typedef LexAutomatonNode LNode;
 typedef LNode* LNodePtr;
@@ -272,11 +272,11 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
     }
     if (flagValue) {
         if (currentLength == 0) {
-            if (!isNumber(c) && c!='\"' && c!='.' && c!='-') {flagValue = false;}
+            if (!isNumber(c) && c!='\"' && c!='.' && c!='-' && c!='\'' && c!='`') {flagValue = false;}
             else {
                 isFloat = false; isString = false; isNegative = false;
                 if (isNumber(c)) {currentValue = c-48; return TR_CONTINUE;}
-                else if (c=='\"') {isString = true, currentIdentifier = ""; return TR_CONTINUE;}
+                else if (c=='\"' || c=='\'' || c=='`') {isString = true, currentIdentifier = ""; quoteType = c; return TR_CONTINUE; }
                 else if (c=='-') {
                     isNegative = true; currentValue = 0;
                     return TR_CONTINUE;
@@ -288,7 +288,16 @@ KontoLexer::TransferResult KontoLexer::transfer(char c, char peek){
             }
         } else {
             if (isString) {
-                if (c=='\"') {currentToken = Token(TK_STRING_VALUE, currentIdentifier); return TR_FINISHED;}
+                if (c==quoteType) {currentToken = Token(TK_STRING_VALUE, currentIdentifier); return TR_FINISHED;}
+                else if (c=='\\') {
+                    if (peek=='\\') currentIdentifier += '\\';
+                    else if (peek=='\'') currentIdentifier += '\'';
+                    else if (peek=='\"') currentIdentifier += '\"';
+                    else if (peek=='n') currentIdentifier += '\n';
+                    else if (peek=='t') currentIdentifier += '\t';
+                    else currentIdentifier += peek;
+                    return TR_PEEKUSED_CONTINUE;
+                }
                 else {currentIdentifier += c; return TR_CONTINUE;}
             } else if (isFloat) {
                 if (isNumber(c)) {currentFloatValue += currentFloatUnit * (c-48), currentFloatUnit /= 10; return TR_CONTINUE;}
@@ -428,6 +437,9 @@ void KontoLexer::addDefaultKeywords(){
     addKeyword("references", TK_REFERENCES);
     addKeyword("quit", TK_QUIT);
     addKeyword("debug", TK_DEBUG);
+    addKeyword("char", TK_VARCHAR);
+    addKeyword("echo", TK_ECHO);
+    addKeyword("tables", TK_TABLES);
 }
 
 void KontoLexer::putback(Token token) {

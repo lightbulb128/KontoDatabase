@@ -1,8 +1,8 @@
 #ifndef KONTOTERM_H
 #define KONTOTERM_H
 
-#include "../KontoConst.h"
-#include "../record/KontoRecord.h"
+#include "KontoConst.h"
+#include "KontoRecord.h"
 #include "KontoLexer.h"
 
 const string TABLES_FILE = "__tables";
@@ -41,9 +41,11 @@ private:
     string currentDatabase;
     vector<string> tables;
     vector<KontoIndexDesc> indices;
+    KontoTerminal();
+    static KontoTerminal* instancePtr;
 public:
     KontoLexer lexer;
-    KontoTerminal();
+    static KontoTerminal* getInstance();
     bool hasTable(string table);
     void createDatabase(string dbname);
     void useDatabase(string dbname);
