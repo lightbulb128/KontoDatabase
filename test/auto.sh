@@ -1,3 +1,3 @@
-# rm folder/*
-g++ -std=c++17 ../record/KontoRecord.cpp ../record/KontoIndex.cpp ../KontoConst.cpp ../db/KontoTerm.cpp ../db/KontoLexer.cpp test.cpp
+rm testDB/*
+g++ -std=c++17 ../src/KontoRecord.cpp ../src/KontoIndex.cpp ../src/KontoConst.cpp ../src/KontoTerm.cpp ../src/KontoLexer.cpp ../src/KontoMain.cpp
 ./a.out

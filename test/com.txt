@@ -170,6 +170,7 @@ update tb1 set fk=1 where num=1;
 debug table tb1;
 */
 
+/*
 debug "trying on select asterisk";
 use database folder;
 create table tb1 (num int(10), dec float, str varchar(15), date date, primary key(num));
@@ -201,5 +202,11 @@ insert into tb2 values
     (6411118,7195.066813,"o","1573-10-6"),
     (4779782,2705.317304,"I1Yo3W4M","2319-7-20");
 select * from tb1, tb2 where tb1.str > tb2.str;
+*/
+
+use database testDB;
+create table tb1 (num int(10), dec float, str varchar(20));
+insert into tb1 values from "ti.txt";
+select * from tb1;
 
 quit;
