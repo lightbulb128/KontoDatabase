@@ -132,9 +132,11 @@ ProcessStatementResult KontoTerminal::processStatement() {
                     cur = lexer.nextToken();
                     if (cur.tokenKind == TK_INT) {
                         def.type = KT_INT; def.size = 4;
-                        cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table add col - int: Expect LParen.");
-                        cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table add col - int: Expect int value.");
-                        cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table add col - int: Expect RParen.");
+                        if (lexer.peek().tokenKind == TK_LPAREN) {
+                            cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table add col - int: Expect LParen.");
+                            cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table add col - int: Expect int value.");
+                            cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table add col - int: Expect RParen.");
+                        }
                         def.defaultValue = new char[4];
                         *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
                     } else if (cur.tokenKind == TK_FLOAT) {
@@ -222,9 +224,11 @@ ProcessStatementResult KontoTerminal::processStatement() {
                 cur = lexer.nextToken();
                 if (cur.tokenKind == TK_INT) {
                     def.type = KT_INT; def.size = 4;
-                    cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table change - int: Expect LParen.");
-                    cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table change - int: Expect int value.");
-                    cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table change - int: Expect RParen.");
+                    if (lexer.peek().tokenKind == TK_LPAREN) {
+                        cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table change - int: Expect LParen.");
+                        cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table change - int: Expect int value.");
+                        cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table change - int: Expect RParen.");
+                    }
                     def.defaultValue = new char[4];
                     *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
                 } else if (cur.tokenKind == TK_FLOAT) {
@@ -365,9 +369,11 @@ ProcessStatementResult KontoTerminal::processStatement() {
                         cur = lexer.nextToken();
                         if (cur.tokenKind == TK_INT) {
                             def.type = KT_INT; def.size = 4;
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - int: Expect LParen.");
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - int: Expect int value.");
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - int: Expect RParen.");
+                            if (lexer.peek().tokenKind == TK_LPAREN) {
+                                cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - int: Expect LParen.");
+                                cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - int: Expect int value.");
+                                cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - int: Expect RParen.");
+                            }
                             def.defaultValue = new char[4];
                             *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
                         } else if (cur.tokenKind == TK_FLOAT) {
@@ -487,6 +493,14 @@ ProcessStatementResult KontoTerminal::processStatement() {
             ProcessStatementResult psr = processWheres(table, wheres);
             if (psr == PSR_OK) deletes(table, wheres);
             return psr;
+        }
+
+        case TK_DESC: {
+            if (currentDatabase == "") {PT(1, "Error: Not using a database!");return PSR_ERR;}
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_IDENTIFIER, "desc: Expect identifier");
+            showTable(cur.identifier);
+            return PSR_OK;
         }
 
         case TK_DROP: {
@@ -828,6 +842,18 @@ void KontoTerminal::alterDropForeignKey(string table, string fkname) {
     handle->close();
 }
 
+bool _checkInt(string str) {
+    int n = str.length();
+    for (int i=0;i<n;i++) if (str[i]>'9' || str[i]<'0') return false;
+    return true;
+}
+
+bool _checkFloat(string str) {
+    int n = str.length();
+    for (int i=0;i<n;i++) if ((str[i]>'9' || str[i]<'0') || (str[i]!='.')) return false;
+    return true;
+}
+
 ProcessStatementResult KontoTerminal::processInsert(string tbname) {
     if (currentDatabase == "") {PT(1, "Error: Not using a database!");return PSR_ERR;}
     if (!hasTable(tbname)) return err("Error: No such table!");
@@ -835,12 +861,16 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
     KontoTableFile::loadFile(currentDatabase + "/" + tbname, &handle);
     char* buffer = new char[handle->getRecordSize()];
     Token cur = lexer.peek();
+    int line = 0;
     if (cur.tokenKind != TK_FROM) {
         int insertedCount = 0;
         while (true) {
             //cout << "while true " << endl;
             //handle->indices[0]->debugPrint();
-            cur = lexer.nextToken();
+            if (lexer.peek().tokenKind == TK_SEMICOLON) break;
+            line++;
+            bool error = false;
+            Token cur = lexer.nextToken();
             ASSERTERR_CLOSE(cur, TK_LPAREN, "insert values: Expect Lparen.");
             int n = handle->keys.size();
             for (int i=0;i<n;i++) {
@@ -848,108 +878,113 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
                 Token cur = lexer.nextToken(valueTypeToExpectation(key.type));
                 switch (key.type) {
                     case KT_INT:
-                        ASSERTERR_CLOSE(cur, TK_INT_VALUE, "insert - type error: Expect int value.");
+                        if (cur.tokenKind != TK_INT_VALUE) {err("insert - type error: Expect int value." + string(" Line ") + to_string(line)); error=true; break;}
                         handle->setEntryInt(buffer, i, cur.value);
                         break;
                     case KT_FLOAT:
-                        ASSERTERR_CLOSE(cur, TK_FLOAT_VALUE, "insert - type error: Expect float value.");
+                        if (cur.tokenKind != TK_FLOAT_VALUE) {err("insert - type error: Expect float value." + string(" Line ") + to_string(line)); error=true; break;}
                         handle->setEntryFloat(buffer, i, cur.doubleValue);
                         break;
                     case KT_STRING:
-                        ASSERTERR_CLOSE(cur, TK_STRING_VALUE, "insert - type error: Expect string value.");
-                        if (cur.identifier.length() > key.size - 1) {handle->close(); return err("insert - value error: String too long.");}
+                        if (cur.tokenKind != TK_STRING_VALUE) {err("insert - type error: Expect string value." + string(" Line ") + to_string(line)); error=true; break;}
+                        if (cur.identifier.length() > key.size - 1) {err("insert - value error: String too long." + string(" Line ") + to_string(line)); error=true; break;}
                         handle->setEntryString(buffer, i, cur.identifier.c_str());
                         //cout << "cur.identifier = " << cur.identifier << endl;
                         break;
                     case KT_DATE:
-                        ASSERTERR_CLOSE(cur, TK_STRING_VALUE, "insert - type error: Expect date string.");
-                        Date date; if (!parse_date(cur.identifier, date)) {handle->close(); return err("insert - value error: Invalid date.");}
+                        if (cur.tokenKind != TK_STRING_VALUE) {err("insert - type error: Expect date string value." + string(" Line ") + to_string(line)); error=true; break;}
+                        Date date; if (!parse_date(cur.identifier, date)) {err("insert - value error: Invalid date." + string(" Line ") + to_string(line)); error=true; break;}
                         handle->setEntryDate(buffer, i, date);
                         break;
                     default:
-                        return err("insert - table type error: Unidentified type.");
+                        error = true; err("insert - table type error: Unidentified type." + string(" Line ") + to_string(line)); break;
                 }
                 if (i!=n-1) {
                     cur=lexer.nextToken();
-                    ASSERTERR_CLOSE(cur, TK_COMMA, "insert value: Expect comma.");
+                    if (cur.tokenKind == TK_COMMA) {error=true; err("insert value: Expect comma." + string(" Line ") + to_string(line)); break;}
                 }
             }
-            cur = lexer.nextToken();
-            ASSERTERR_CLOSE(cur, TK_RPAREN, "insert values: Expect Rparen.");
+            while (true) {
+                cur = lexer.peek();
+                if (cur.tokenKind != TK_SEMICOLON && cur.tokenKind != TK_RPAREN) break;
+            }
+            if (cur.tokenKind == TK_RPAREN) cur = lexer.nextToken();
+            if (lexer.peek().tokenKind == TK_COMMA) cur = lexer.nextToken(); 
+            if (error) continue;
             auto result = handle->insert(buffer);
             if (result == KR_PRIMARY_REPETITION) {
-                handle->close();
-                return err("insert values: Repetition on primary key when inserting #" + to_string(insertedCount) + " value");
+                err("insert values: Repetition on primary key when inserting #" + to_string(insertedCount) + " value");
+                continue;
             } else if (result == KR_FOREIGN_KEY_FAIL) {
-                handle->close();
-                return err("insert values: Foreign key check failed for #" + to_string(insertedCount) + " value");
+                err("insert values: Foreign key check failed for #" + to_string(insertedCount) + " value");
+                continue;
             }
             insertedCount ++;
             //cout << "inserted " << insertedCount << endl;
             //if (insertedCount%10==0) handle->printTable(true, true);
-            if (lexer.peek().tokenKind == TK_SEMICOLON) break;
-            cur = lexer.nextToken();
-            ASSERTERR_CLOSE(cur, TK_COMMA, "insert values: Expect comma.");
         }
     } else {
         cur = lexer.nextToken(); cur = lexer.nextToken(TE_STRING_VALUE);
         ASSERTERR_CLOSE(cur, TK_STRING_VALUE, "insert from file: Expect filename string.");
         int insertedCount = 0;
         std::ifstream fin(cur.identifier);
+        int line = 0;
         while (true) {
             //cout << "while true " << endl;
             //handle->indices[0]->debugPrint();
             if (fin.eof()) break;
-            //cout << "before get size " << endl;
+            line++;
+            bool error = false;
             int n = handle->keys.size();
             for (int i=0;i<n;i++) {
-                //cout << "i = " << i << endl;
                 const auto& key = handle->keys[i];
-                //cout << "bef getstring" << endl;
                 string value;
-                char b[2048]; fin.get(b, 2048, ',');
+                char b[2048]; 
+                if (i!=n-1) {fin.get(b, 2048, ','); value=b;}
+                else {fin.get(b, 2048, '\n'); value=b; if (value[value.length()-1]==',') value=value.substr(0, value.length()-1);}
                 value = b;
-                //cout << "got string = " << value << endl;
                 switch (key.type) {
                     case KT_INT: {
                         int pos = value.find('#');
                         if (pos != value.npos) value = value.substr(pos+1, value.length() - pos - 1);
+                        if (!_checkInt(value)) {error=true; err("insert - value error: Invalid int." + string(" Line ") + to_string(line)); break;}
                         handle->setEntryInt(buffer, i, atoi(value.c_str()));
                         break;
                     }
                     case KT_FLOAT:
+                        if (!_checkFloat(value)) {error=true; err("insert - value error: Invalid float." + string(" Line ") + to_string(line)); break;}
                         handle->setEntryFloat(buffer, i, atof(value.c_str()));
                         break;
                     case KT_STRING:
-                        if (value.length() > key.size - 1) {handle->close(); return err("insert - value error: String too long.");}
+                        if (value.length() > key.size - 1) {error=true; err("insert - value error: String too long." + string(" Line ") + to_string(line)); break;}
                         handle->setEntryString(buffer, i, value.c_str());
                         //cout << "cur.identifier = " << cur.identifier << endl;
                         break;
                     case KT_DATE:
-                        Date date; if (!parse_date(value, date)) {handle->close(); return err("insert - value error: Invalid date.");}
+                        Date date; if (!parse_date(value, date)) {error=true; err("insert - value error: Invalid date." + string(" Line ") + to_string(line)); break;}
                         handle->setEntryDate(buffer, i, date);
                         break;
                     default:
-                        return err("insert from file - type error: Unidentified type.");
+                        error=true; err("insert from file - type error: Unidentified type." + string(" Line ") + to_string(line)); break;
                 }
                 if (i!=n-1) {
                     value = fin.get();
                     //cout << i << " value : " << int(value[0]);
-                    if (value != ",") {handle->close(); fin.close(); return err("insert from file: Expect comma.");}
+                    if (value != ",") {error=true; err("insert from file: Expect comma." + string(" Line ") + to_string(line)); break;}
                 } else {if (fin.peek() == ',') fin.get();}
             }
+            if (error) continue; 
             auto result = handle->insert(buffer);
             if (result == KR_PRIMARY_REPETITION) {
                 handle->close();
-                return err("insert from file: Repetition on primary key when inserting #" + to_string(insertedCount) + " value");
+                err("insert from file: Repetition on primary key when inserting #" + to_string(insertedCount) + " value");
+                continue;
             } else if (result == KR_FOREIGN_KEY_FAIL) {
                 handle->close();
-                return err("insert from file: Foreign key check failed for #" + to_string(insertedCount) + " value");
+                err("insert from file: Foreign key check failed for #" + to_string(insertedCount) + " value");
+                continue;
             }
             insertedCount ++;
-            //cout << "inserted " << insertedCount << endl;
-            //if (insertedCount%10==0) handle->printTable(true, true);
-            if (fin.peek() == EOF) break;
         }
         //cout << "close" << endl;
         fin.close();
