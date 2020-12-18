@@ -5,6 +5,61 @@
 #include "KontoRecord.h"
 #include "KontoLexer.h"
 
+/* SUPPORTED COMMANDS 
+
+alter table [tbname] add constraint [fkname] foreign key (cols) references [ftable] (fcols...)
+TODO ALTER TABLE [TBNAME] ADD CONSTRAINT [PKNAME] PRIMARY KEY (COLS)
+alter table [tbname] add index [idname] (cols...)
+alter table [tbname] add primary key (cols...)
+alter table [tbname] add [colname] [typedef]
+alter table [tbname] drop foreign key [fkname]
+alter table [tbname] drop index [idname]
+alter table [tbname] drop primary key
+alter table [tbname] drop [colname]
+alter table [tbname] change [colname] [typedef]
+alter table [tbname] rename [col] to [col]
+TODO ALTER TABLE [TBNAME] RENAME TO [NEWTBNAME]
+
+create database [dbname]
+TODO CREATE INDEX [IDNAME] ON [TBNAME] (COLS...)
+create table [tbname] (coldefs...)
+
+debug echo [message]
+debug from [tbname] where [wheres...]
+debug index [idname]
+debug primary [tbname]
+debug table [tbname]
+debug [message]
+
+delete from [tbname] where [wheres...]
+
+desc [tbname]
+
+drop database [dbname]
+TODO DROP INDEX [IDNAME]
+drop table [tbname]
+
+echo [message]
+
+insert into [tbname] values [vals]
+insert into [tbname] values file [csv filename]
+
+quit
+
+select [* or cols] from [tables...] where [wheres...]
+
+show database [dbname]
+shwo databases
+show table [tbname]
+shwo tables
+
+update [tbname] set [setstmt] where [wheres...]
+
+use [dbname]
+use database [dbname]
+
+*/
+
 const string TABLES_FILE = "__tables";
 const string INDICES_FILE = "__indices";
 
@@ -63,12 +118,14 @@ public:
     void alterAddForeignKey(string table, string fkname, 
         const vector<string>& col, string foreignTable, 
         const vector<string>& foreignNames);
+    void alterRenameColumn(string table, string origname, string newname);
+    void alterRenameTable(string table, string newname);
     void alterDropForeignKey(string table, string fkname);
     void loadIndices();
     void saveIndices();
     void dropTableIndices(string tb);
     void createIndex(string idname, string table, const vector<string>& cols);
-    void dropIndex(string idname);
+    void dropIndex(string idname, string table="");
     void debugIndex(string idname);
     void debugIndex();
     void debugTable(string tbname);
@@ -95,6 +152,11 @@ public:
     ProcessStatementResult processInsert(string tbname);
     ProcessStatementResult processSelect();
     ProcessStatementResult processUpdate(string tbname);
+    ProcessStatementResult processAlterAdd(string tbname);
+    ProcessStatementResult processAlterDrop(string tbname);
+    ProcessStatementResult processCreate();
+    ProcessStatementResult processAlterChange(string tbname);
+    ProcessStatementResult processAlterRename(string tbname);
 };
 
 #endif

@@ -234,7 +234,7 @@ KontoResult KontoTableFile::getDataCopied(const KontoRPos& pos, char* dest) {
 }
 
 KontoResult KontoTableFile::editEntryInt(const KontoRPos& pos, KontoKeyIndex key, int datum) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_INT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
     *((int*)ptr) = datum;
@@ -242,7 +242,7 @@ KontoResult KontoTableFile::editEntryInt(const KontoRPos& pos, KontoKeyIndex key
 }
 
 KontoResult KontoTableFile::readEntryInt(const KontoRPos& pos, KontoKeyIndex key, int& out) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_INT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
     out = *((int*)ptr);
@@ -250,7 +250,7 @@ KontoResult KontoTableFile::readEntryInt(const KontoRPos& pos, KontoKeyIndex key
 }
 
 KontoResult KontoTableFile::editEntryFloat(const KontoRPos& pos, KontoKeyIndex key, double datum) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_FLOAT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
     *((double*)ptr) = datum;
@@ -258,7 +258,7 @@ KontoResult KontoTableFile::editEntryFloat(const KontoRPos& pos, KontoKeyIndex k
 }
 
 KontoResult KontoTableFile::readEntryFloat(const KontoRPos& pos, KontoKeyIndex key, double& out) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_FLOAT) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
     out = *((double*)ptr);
@@ -266,7 +266,7 @@ KontoResult KontoTableFile::readEntryFloat(const KontoRPos& pos, KontoKeyIndex k
 }
 
 KontoResult KontoTableFile::editEntryString(const KontoRPos& pos, KontoKeyIndex key, const char* data) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_STRING) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
     strcpy((char*)ptr, data);
@@ -274,7 +274,7 @@ KontoResult KontoTableFile::editEntryString(const KontoRPos& pos, KontoKeyIndex 
 }
 
 KontoResult KontoTableFile::readEntryString(const KontoRPos& pos, KontoKeyIndex key, char* out) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_STRING) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
     strcpy(out, (char*)ptr);
@@ -282,7 +282,7 @@ KontoResult KontoTableFile::readEntryString(const KontoRPos& pos, KontoKeyIndex 
 }
 
 KontoResult KontoTableFile::editEntryDate(const KontoRPos& pos, KontoKeyIndex key, Date datum) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_DATE) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
     *((Date*)ptr) = datum;
@@ -290,7 +290,7 @@ KontoResult KontoTableFile::editEntryDate(const KontoRPos& pos, KontoKeyIndex ke
 }
 
 KontoResult KontoTableFile::readEntryDate(const KontoRPos& pos, KontoKeyIndex key, Date& out) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_DATE) return KR_TYPE_NOT_MATCHING;
     char* ptr = getDataPointer(pos, key, true);
     out = *((Date*)ptr);
@@ -376,7 +376,7 @@ KontoResult KontoTableFile::getKeyIndex(const char* key, KontoKeyIndex& out) {
             out = i;
             return KR_OK;
         }
-    return KR_UNDEFINED_FIELD;
+    return KR_NO_SUCH_COLUMN;
 }
 
 KontoQueryResult::KontoQueryResult(const KontoQRes& r) {
@@ -564,7 +564,7 @@ KontoIndex* KontoTableFile::getIndex(const vector<KontoKeyIndex>& keyIndices) {
 }
 
 KontoResult KontoTableFile::setEntryInt(char* record, KontoKeyIndex key, int datum) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_INT) return KR_TYPE_NOT_MATCHING;
     char* ptr = record + keys[key].position;
     *((int*)ptr) = datum;
@@ -572,7 +572,7 @@ KontoResult KontoTableFile::setEntryInt(char* record, KontoKeyIndex key, int dat
 }
 
 KontoResult KontoTableFile::setEntryFloat(char* record, KontoKeyIndex key, double datum) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_FLOAT) return KR_TYPE_NOT_MATCHING;
     char* ptr = record + keys[key].position;
     *((double*)ptr) = datum;
@@ -580,7 +580,7 @@ KontoResult KontoTableFile::setEntryFloat(char* record, KontoKeyIndex key, doubl
 }
 
 KontoResult KontoTableFile::setEntryString(char* record, KontoKeyIndex key, const char* data) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_STRING) return KR_TYPE_NOT_MATCHING;
     char* ptr = record + keys[key].position;
     strcpy((char*)ptr, data);
@@ -588,7 +588,7 @@ KontoResult KontoTableFile::setEntryString(char* record, KontoKeyIndex key, cons
 }
 
 KontoResult KontoTableFile::setEntryDate(char* record, KontoKeyIndex key, Date datum) {
-    if (key<0 || key>=keys.size()) return KR_UNDEFINED_FIELD;
+    if (key<0 || key>=keys.size()) return KR_NO_SUCH_COLUMN;
     if (keys[key].type!=KT_DATE) return KR_TYPE_NOT_MATCHING;
     char* ptr = record + keys[key].position;
     *((Date*)ptr) = datum;
@@ -964,10 +964,10 @@ void KontoTableFile::printTableHeader(bool pos) {
     cout << "|" << endl;
 }
 
-void KontoTableFile::printTableEntry(const KontoRPos& item, bool pos) {
+bool KontoTableFile::printTableEntry(const KontoRPos& item, bool pos) {
     char* data = new char[getRecordSize()];
     getDataCopied(item, data);
-    if (VI(data+4) & FLAGS_DELETED) return;
+    if (VI(data+4) & FLAGS_DELETED) return false;
     if (pos) {
         cout << "|" << SS(2, std::to_string(item.page), true);
         cout << "|" << SS(4, std::to_string(item.id), true);
@@ -985,6 +985,7 @@ void KontoTableFile::printTableEntry(const KontoRPos& item, bool pos) {
     }
     cout << "|" << endl;
     delete[] data;
+    return true;
 }
 
 void KontoTableFile::printTable(bool meta, bool pos) {
@@ -996,9 +997,10 @@ void KontoTableFile::printTable(bool meta, bool pos) {
     } else cout << "[TABLE]" << endl;
     printTableHeader(pos);
     KontoQRes q; allEntries(q); 
-    for (auto& item : q.items) {
-        printTableEntry(item, pos);
-    }
+    int total = 0;
+    for (auto& item : q.items) 
+        if (printTableEntry(item, pos)) total++;
+    cout << "Total: " << total << endl;
 }
 
 void KontoTableFile::printTable(const KontoQRes& list, bool pos) {
@@ -1006,9 +1008,10 @@ void KontoTableFile::printTable(const KontoQRes& list, bool pos) {
     //cout << "[TABLE " << filename << "]\n";
     //cout << "     querycount=" << list.size() << endl;
     printTableHeader(pos);
-    for (auto& item: list.items) {
-        printTableEntry(item, pos);
-    }
+    int total = 0;
+    for (auto& item: list.items) 
+        if (printTableEntry(item, pos)) total++;
+    cout << "Total: " << total << endl;
 }
 
 bool _kontoRPosComp(const KontoRPos& a, const KontoRPos& b) {
@@ -1313,4 +1316,18 @@ KontoResult KontoTableFile::checkForeignKey(char* record, const vector<uint> col
     term->queryWheres(wheres, q);
     if (q.size() == 0) return KR_FOREIGN_KEY_FAIL;
     return KR_OK;
+}
+
+KontoResult KontoTableFile::alterRename(string newname) { 
+    int bufindex;
+    KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
+    char* ptr = metapage + POS_FILENAME;
+    PS(ptr, newname);
+    pmgr.markDirty(bufindex);
+    pmgr.closeFile(fileID);
+    rename_file(get_filename(filename), get_filename(newname));
+    string fullFilename = get_filename(newname);
+    fileID = pmgr.getFileManager().openFile(fullFilename.c_str());
+    for (auto& id : indices) {id->renameTable(newname);}
+    filename = newname;
 }

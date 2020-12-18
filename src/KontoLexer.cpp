@@ -89,6 +89,9 @@ std::ostream& operator <<(std::ostream& stream, const Token& t){
         case TK_REFERENCES: stream << "References"; break;
         case TK_QUIT: stream << "Quit"; break;
         case TK_DEBUG: stream << "Debug"; break;
+        case TK_ECHO: stream << "Echo"; break;
+        case TK_TABLES: stream << "Tables"; break;
+        case TK_TO: stream << "To"; break;
         default: stream << "Unknown token type"; break;
     }
     stream << "]";
@@ -440,6 +443,8 @@ void KontoLexer::addDefaultKeywords(){
     addKeyword("char", TK_VARCHAR);
     addKeyword("echo", TK_ECHO);
     addKeyword("tables", TK_TABLES);
+    addKeyword("to", TK_TO);
+    addKeyword("on", TK_ON);
 }
 
 void KontoLexer::putback(Token token) {

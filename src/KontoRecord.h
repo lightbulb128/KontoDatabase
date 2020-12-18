@@ -220,6 +220,7 @@ public:
     KontoResult alterDropColumn(string name);
     KontoResult alterRenameColumn(string old, string newname);
     KontoResult alterChangeColumn(string original, const KontoCDef& newdef);
+    KontoResult alterRename(string newname);
 
     void getPrimaryKeys(vector<uint>& cols);
 
@@ -238,7 +239,7 @@ public:
     void debugIndex(const vector<uint>& cols);
 
     void printTableHeader(bool pos = false);
-    void printTableEntry(const KontoRPos& item, bool pos = false);
+    bool printTableEntry(const KontoRPos& item, bool pos = false);
     void printTable(bool meta = false, bool pos = false);
     void printTable(const KontoQRes& list, bool pos);
 

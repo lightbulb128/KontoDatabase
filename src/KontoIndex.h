@@ -112,6 +112,7 @@ public:
     void debugPrintPage(int pageID, bool recur = true);
     void debugPrint();
     void debugPageOne();
+    void renameTable(string newname);
 };
 
 #endif

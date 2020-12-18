@@ -833,3 +833,12 @@ KontoResult KontoIndex::queryInterval(char* lower, char* upper, KontoQRes& out,
 }
 
 string KontoIndex::getFilename() {return filename;}
+
+void KontoIndex::renameTable(string newname) {
+    int pos = filename.find(".");
+    string newIndexFilename = newname + filename.substr(pos+1, filename.length()-pos-1);
+    pmgr.closeFile(fileID);
+    rename_file(get_filename(filename), get_filename(newIndexFilename));
+    fileID = pmgr.getFileManager().openFile(get_filename(newIndexFilename).c_str());
+    filename = newIndexFilename;
+}

@@ -41,404 +41,20 @@ ProcessStatementResult KontoTerminal::processStatement() {
             string table = cur.identifier;
             cur = lexer.nextToken();
             if (cur.tokenKind == TK_ADD) {
-                cur = lexer.nextToken();
-                if (cur.tokenKind == TK_PRIMARY) {
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_KEY, "alter table add primary: Expect keyword key.");
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_LPAREN, "create table - primary: Expect LParen."); 
-                    vector<string> primaries; primaries.clear();
-                    while (true) {
-                        cur = lexer.nextToken(TE_IDENTIFIER);
-                        ASSERTERR(cur, TK_IDENTIFIER, "create table - primary: Expect identifier.");
-                        primaries.push_back(cur.identifier);
-                        cur = lexer.peek(); 
-                        if (cur.tokenKind == TK_COMMA) lexer.nextToken();
-                        else if (cur.tokenKind == TK_RPAREN) break;
-                        else return err("create table - primary: Expect comma or rparen.");
-                    }
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_RPAREN, "create table - primary: Expect RParen.");
-                    alterAddPrimaryKey(table, primaries);
-                    return PSR_OK;
-                } else if (cur.tokenKind == TK_CONSTRAINT) {
-                    cur = lexer.nextToken(TE_IDENTIFIER);
-                    ASSERTERR(cur, TK_IDENTIFIER, "alter table add constraint: Expect identifier.");
-                    string fkname = cur.identifier;
-                    vector<string> foreigns; foreigns.clear();
-                    string foreignTable;
-                    vector<string> foreignName; foreignName.clear();
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_FOREIGN, "alter table add constraint: Expect keyword foreign.");
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_KEY, "alter table add constraint: Expect keyword key.");
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_LPAREN, "alter table add constraint - foreign: Expect LParen."); 
-                    int cnt = 0;
-                    while (true) {
-                        cur = lexer.nextToken(TE_IDENTIFIER);
-                        ASSERTERR(cur, TK_IDENTIFIER, "alter table add constraint - foreign: Expect identifier.");
-                        foreigns.push_back(cur.identifier); cnt++;
-                        cur = lexer.peek(); 
-                        if (cur.tokenKind == TK_COMMA) lexer.nextToken();
-                        else if (cur.tokenKind == TK_RPAREN) break;
-                        else return err("alter table add constraint - foreign: Expect comma or rparen.");
-                    }
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_RPAREN, "alter table add constraint - foreign: Expect RParen.");
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_REFERENCES, "alter table add constraint - foreign: Expect keyword REFERENCES");
-                    cur = lexer.nextToken(TE_IDENTIFIER);
-                    ASSERTERR(cur, TK_IDENTIFIER, "alter table add constraint - references: Expect identifier");
-                    foreignTable = cur.identifier;
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_LPAREN, "alter table add constraint - references: Expect LParen."); 
-                    int ncnt = 0;
-                    while (true) {
-                        cur = lexer.nextToken(TE_IDENTIFIER);
-                        ASSERTERR(cur, TK_IDENTIFIER, "alter table add constraint - references: Expect identifier.");
-                        foreignName.push_back(cur.identifier); ncnt++;
-                        cur = lexer.peek(); 
-                        if (cur.tokenKind == TK_COMMA) lexer.nextToken();
-                        else if (cur.tokenKind == TK_RPAREN) break;
-                        else return err("alter table add constraint - references: Expect comma or rparen.");
-                    }
-                    lexer.nextToken();
-                    if (ncnt!=cnt) return err("alter table add constraint - foreign: Reference count does not match.");
-                    alterAddForeignKey(table, fkname, foreigns, foreignTable, foreignName);
-                    return PSR_OK;
-                } else if (cur.tokenKind == TK_INDEX) {
-                    cur = lexer.nextToken(TE_IDENTIFIER);
-                    ASSERTERR(cur, TK_IDENTIFIER, "alter table add index : Expect identifier");
-                    string idname = cur.identifier;
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_LPAREN, "alter table add index: Expect LParen."); 
-                    vector<string> cols; cols.clear();
-                    while (true) {
-                        cur = lexer.nextToken(TE_IDENTIFIER);
-                        ASSERTERR(cur, TK_IDENTIFIER, "alter table add index: Expect identifier.");
-                        cols.push_back(cur.identifier);
-                        cur = lexer.peek(); 
-                        if (cur.tokenKind == TK_COMMA) lexer.nextToken();
-                        else if (cur.tokenKind == TK_RPAREN) break;
-                        else return err("alter table add index: Expect comma or rparen.");
-                    }
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_RPAREN, "alter table add index: Expect RParen.");
-                    createIndex(idname, table, cols);
-                    return PSR_OK;
-                } else if (cur.tokenKind == TK_IDENTIFIER) {
-                    KontoCDef def("", TK_INT, 4); def.name = cur.identifier;
-                    cur = lexer.nextToken();
-                    if (cur.tokenKind == TK_INT) {
-                        def.type = KT_INT; def.size = 4;
-                        if (lexer.peek().tokenKind == TK_LPAREN) {
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table add col - int: Expect LParen.");
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table add col - int: Expect int value.");
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table add col - int: Expect RParen.");
-                        }
-                        def.defaultValue = new char[4];
-                        *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
-                    } else if (cur.tokenKind == TK_FLOAT) {
-                        def.type = KT_FLOAT; def.size = 8;
-                        def.defaultValue = new char[8];
-                        *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
-                    } else if (cur.tokenKind == TK_VARCHAR) {
-                        def.type = KT_STRING; 
-                        cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table add col - varchar: Expect LParen.");
-                        cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table add col - varchar: Expect int value.");
-                        def.size = cur.value + 1;
-                        cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table add col - varchar: Expect RParen.");
-                        def.defaultValue = new char[def.size];
-                        memset(def.defaultValue, 0, def.size);
-                    } else if (cur.tokenKind == TK_DATE) {
-                        def.type = KT_DATE; def.size = 4;
-                        def.defaultValue = new char[4];
-                        *(Date*)(def.defaultValue) = DEFAULT_DATE_VALUE;
-                    } else return err("alter table add col: expect a type definition.");
-                    peek = lexer.peek();
-                    if (peek.tokenKind == TK_NOT) {
-                        lexer.nextToken(); cur = lexer.nextToken();
-                        ASSERTERR(cur, TK_NULL, "alter table add col - not: Expect keyword NULL");
-                        def.nullable = false;
-                    }
-                    peek = lexer.peek();
-                    if (peek.tokenKind == TK_DEFAULT) {
-                        lexer.nextToken(); cur = lexer.nextToken(valueTypeToExpectation(def.type));
-                        if (def.type == KT_INT) {
-                            ASSERTERR(cur, TK_INT_VALUE, "alter table add col - default: Expect int value.");
-                            def.defaultValue = new char[4]; 
-                            *(int*)(def.defaultValue) = cur.value;
-                        } else if (def.type == KT_FLOAT) {
-                            ASSERTERR(cur, TK_FLOAT_VALUE, "alter table add col - default: Expect double value.");
-                            def.defaultValue = new char[8];
-                            *(double*)(def.defaultValue) = cur.doubleValue;
-                        } else if (def.type == KT_STRING) {
-                            ASSERTERR(cur, TK_STRING_VALUE, "alter table add col - default: Expect string value.");
-                            def.defaultValue = new char[def.size];
-                            strcpy(def.defaultValue, cur.identifier.c_str());
-                        } else if (def.type == KT_DATE) {
-                            ASSERTERR(cur, TK_STRING_VALUE, "alter table add col - default: Expect date string.");
-                            def.defaultValue = new char[4];
-                            Date parsed; if (!parse_date(cur.identifier, parsed)) return err("value error: Not a valid date.");
-                            *(Date*)(def.defaultValue) = parsed;
-                        }
-                    }
-                    alterAddColumn(table, def);
-                    return PSR_OK;
-                } else {
-                    return err("alter table add: Expect PRIMARY or CONSTRAINT or INDEX or identifier.");
-                }
+                return processAlterAdd(table);
             } else if (cur.tokenKind == TK_DROP) {
-                cur = lexer.nextToken();
-                if (cur.tokenKind == TK_PRIMARY) {
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_KEY, "alter table drop primary: Expect keyword key.");
-                    alterDropPrimaryKey(table);
-                    return PSR_OK;
-                } else if (cur.tokenKind == TK_FOREIGN) {
-                    cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_KEY, "alter table drop foreign: Expect keyword key.");
-                    cur = lexer.nextToken(TE_IDENTIFIER);
-                    ASSERTERR(cur, TK_IDENTIFIER, "alter table drop foreign: Expect identifier.");
-                    alterDropForeignKey(table, cur.identifier);
-                    return PSR_OK;
-                } else if (cur.tokenKind == TK_INDEX) {
-                    cur = lexer.nextToken(TE_IDENTIFIER);
-                    ASSERTERR(cur, TK_IDENTIFIER, "alter table drop index: Expect identifier.");
-                    string idname = cur.identifier;
-                    dropIndex(idname);
-                } else if (cur.tokenKind == TK_IDENTIFIER) {
-                    alterDropColumn(table, cur.identifier);
-                    return PSR_OK;
-                } else {
-                    return err("alter table drop: Expect PRIMARY or FOREIGN or identifier.");
-                }
+                return processAlterDrop(table);
             } else if (cur.tokenKind == TK_CHANGE) {
-                cur = lexer.nextToken(TE_IDENTIFIER); 
-                ASSERTERR(cur, TK_IDENTIFIER, "alter table change: Expect identifier");
-                string old = cur.identifier;
-                cur = lexer.nextToken(TE_IDENTIFIER);
-                ASSERTERR(cur, TK_IDENTIFIER, "alter table change: Expect identifier");
-                KontoCDef def("", TK_INT, 4); def.name = cur.identifier;
-                cur = lexer.nextToken();
-                if (cur.tokenKind == TK_INT) {
-                    def.type = KT_INT; def.size = 4;
-                    if (lexer.peek().tokenKind == TK_LPAREN) {
-                        cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table change - int: Expect LParen.");
-                        cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table change - int: Expect int value.");
-                        cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table change - int: Expect RParen.");
-                    }
-                    def.defaultValue = new char[4];
-                    *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
-                } else if (cur.tokenKind == TK_FLOAT) {
-                    def.type = KT_FLOAT; def.size = 8;
-                    def.defaultValue = new char[8];
-                    *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
-                } else if (cur.tokenKind == TK_VARCHAR) {
-                    def.type = KT_STRING; 
-                    cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table change - varchar: Expect LParen.");
-                    cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table change - varchar: Expect int value.");
-                    def.size = cur.value + 1;
-                    cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table change - varchar: Expect RParen.");
-                    def.defaultValue = new char[def.size];
-                    memset(def.defaultValue, 0, def.size);
-                } else if (cur.tokenKind == TK_DATE) {
-                    def.type = KT_DATE; def.size = 4;
-                    def.defaultValue = new char[4];
-                    *(Date*)(def.defaultValue) = DEFAULT_DATE_VALUE;
-                } else {
-                    return err("alter table change: expect a type definition.");
-                }
-                peek = lexer.peek();
-                if (peek.tokenKind == TK_NOT) {
-                    lexer.nextToken(); cur = lexer.nextToken();
-                    ASSERTERR(cur, TK_NULL, "alter table change - not: Expect keyword NULL");
-                    def.nullable = false;
-                }
-                peek = lexer.peek();
-                if (peek.tokenKind == TK_DEFAULT) {
-                    lexer.nextToken(); cur = lexer.nextToken(valueTypeToExpectation(def.type));
-                    if (def.type == KT_INT) {
-                        ASSERTERR(cur, TK_INT_VALUE, "alter table change - default: Expect int value.");
-                        def.defaultValue = new char[4]; 
-                        *(int*)(def.defaultValue) = cur.value;
-                    } else if (def.type == KT_FLOAT) {
-                        ASSERTERR(cur, TK_FLOAT_VALUE, "alter table change - default: Expect double value.");
-                        def.defaultValue = new char[8];
-                        *(double*)(def.defaultValue) = cur.doubleValue;
-                    } else if (def.type == KT_STRING) {
-                        ASSERTERR(cur, TK_STRING_VALUE, "alter table change - default: Expect string value.");
-                        def.defaultValue = new char[def.size];
-                        strcpy(def.defaultValue, cur.identifier.c_str());
-                    } else if (def.type == KT_DATE) {
-                        ASSERTERR(cur, TK_STRING_VALUE, "alter table add col - default: Expect date string.");
-                        def.defaultValue = new char[4];
-                        Date parsed; if (!parse_date(cur.identifier, parsed)) return err("value error: Not a valid date.");
-                        *(Date*)(def.defaultValue) = parsed;
-                    }
-                }
-                alterChangeColumn(table, old, def);
-                return PSR_OK;
+                return processAlterChange(table);
+            } else if (cur.tokenKind == TK_RENAME) {
+                return processAlterRename(table);
             } else {
                 return err("alter table: Expect keyword ADD, DROP or CHANGE.");
-            }
+            } 
         }
 
         case TK_CREATE: {
-            Token peek = lexer.peek();
-            if (peek.tokenKind == TK_DATABASE) {
-                lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
-                ASSERTERR(cur, TK_IDENTIFIER, "create database: Expect identifier.");
-                createDatabase(cur.identifier);
-                return PSR_OK;
-            } else if (peek.tokenKind == TK_TABLE) {
-                lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
-                ASSERTERR(cur, TK_IDENTIFIER, "create table: Expect identifier.");
-                string name = cur.identifier;
-                cur = lexer.nextToken(); 
-                ASSERTERR(cur, TK_LPAREN, "create table: Expect LParen.");
-                // analyse keylist
-                vector<KontoCDef> defs;
-                vector<string> primaries; primaries.clear();
-                vector<vector<string>> foreigns; foreigns.clear();
-                vector<string> foreignTable; foreignTable.clear();
-                vector<vector<string>> foreignName; foreignName.clear();
-                while (true) {
-                    peek = lexer.peek();
-                    if (peek.tokenKind == TK_RPAREN) break;
-                    if (peek.tokenKind == TK_PRIMARY) {
-                        lexer.nextToken(); cur = lexer.nextToken();
-                        ASSERTERR(cur, TK_KEY, "create table - primary: Expect keyword KEY");
-                        cur = lexer.nextToken();
-                        ASSERTERR(cur, TK_LPAREN, "create table - primary: Expect LParen."); 
-                        while (true) {
-                            cur = lexer.nextToken(TE_IDENTIFIER);
-                            ASSERTERR(cur, TK_IDENTIFIER, "create table - primary: Expect identifier.");
-                            primaries.push_back(cur.identifier);
-                            cur = lexer.peek(); 
-                            if (cur.tokenKind == TK_COMMA) lexer.nextToken();
-                            else if (cur.tokenKind == TK_RPAREN) break;
-                            else return err("create table - primary: Expect comma or rparen.");
-                        }
-                        cur = lexer.nextToken();
-                        ASSERTERR(cur, TK_RPAREN, "create table - primary: Expect RParen.");
-                    } else if (peek.tokenKind == TK_FOREIGN) {
-                        vector<string> cols; cols.clear();
-                        vector<string> refs; refs.clear();
-                        lexer.nextToken(); cur = lexer.nextToken();
-                        ASSERTERR(cur, TK_KEY, "create table - foreign: Expect keyword KEY");
-                        cur = lexer.nextToken();
-                        ASSERTERR(cur, TK_LPAREN, "create table - foreign: Expect LParen."); 
-                        int cnt = 0;
-                        while (true) {
-                            cur = lexer.nextToken(TE_IDENTIFIER);
-                            ASSERTERR(cur, TK_IDENTIFIER, "create table - foreign: Expect identifier.");
-                            cols.push_back(cur.identifier); cnt++;
-                            cur = lexer.peek(); 
-                            if (cur.tokenKind == TK_COMMA) lexer.nextToken();
-                            else if (cur.tokenKind == TK_RPAREN) break;
-                            else return err("create table - foreign: Expect comma or rparen.");
-                        }
-                        cur = lexer.nextToken();
-                        ASSERTERR(cur, TK_RPAREN, "create table - foreign: Expect RParen.");
-                        cur = lexer.nextToken();
-                        ASSERTERR(cur, TK_REFERENCES, "create table - foreign: Expect keyword REFERENCES");
-                        cur = lexer.nextToken(TE_IDENTIFIER);
-                        ASSERTERR(cur, TK_IDENTIFIER, "create table - references: Expect identifier");
-                        foreignTable.push_back(cur.identifier);
-                        cur = lexer.nextToken();
-                        ASSERTERR(cur, TK_LPAREN, "create table - references: Expect LParen."); 
-                        int ncnt = 0;
-                        while (true) {
-                            cur = lexer.nextToken(TE_IDENTIFIER);
-                            ASSERTERR(cur, TK_IDENTIFIER, "create table - references: Expect identifier.");
-                            refs.push_back(cur.identifier); ncnt++;
-                            cur = lexer.peek(); 
-                            if (cur.tokenKind == TK_COMMA) lexer.nextToken();
-                            else if (cur.tokenKind == TK_RPAREN) break;
-                            else return err("create table - references: Expect comma or rparen.");
-                        }
-                        lexer.nextToken();
-                        if (ncnt!=cnt) return err("create table - foreign: Reference count does not match.");
-                        foreigns.push_back(cols);
-                        foreignName.push_back(refs);
-                    } else if (lexer.toExpected(peek, TE_IDENTIFIER).tokenKind == TK_IDENTIFIER) {
-                        lexer.nextToken(); 
-                        KontoCDef def("", TK_INT, 4); def.name = peek.identifier;
-                        cur = lexer.nextToken();
-                        if (cur.tokenKind == TK_INT) {
-                            def.type = KT_INT; def.size = 4;
-                            if (lexer.peek().tokenKind == TK_LPAREN) {
-                                cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - int: Expect LParen.");
-                                cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - int: Expect int value.");
-                                cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - int: Expect RParen.");
-                            }
-                            def.defaultValue = new char[4];
-                            *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
-                        } else if (cur.tokenKind == TK_FLOAT) {
-                            def.type = KT_FLOAT; def.size = 8;
-                            def.defaultValue = new char[8];
-                            *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
-                        } else if (cur.tokenKind == TK_VARCHAR) {
-                            def.type = KT_STRING; 
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - varchar: Expect LParen.");
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - varchar: Expect int value.");
-                            def.size = cur.value + 1;
-                            cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - varchar: Expect RParen.");
-                            def.defaultValue = new char[def.size];
-                            memset(def.defaultValue, 0, def.size);
-                        } else if (cur.tokenKind == TK_DATE) {
-                            def.type = KT_DATE; def.size = 4;
-                            def.defaultValue = new char[4];
-                            *(Date*)(def.defaultValue) = DEFAULT_DATE_VALUE;
-                        } else return err("create table: expect a type definition.");
-                        peek = lexer.peek();
-                        if (peek.tokenKind == TK_NOT) {
-                            lexer.nextToken(); cur = lexer.nextToken();
-                            ASSERTERR(cur, TK_NULL, "create table - not: Expect keyword NULL");
-                            def.nullable = false;
-                        }
-                        peek = lexer.peek();
-                        if (peek.tokenKind == TK_DEFAULT) {
-                            lexer.nextToken(); cur = lexer.nextToken(valueTypeToExpectation(def.type));
-                            if (def.type == KT_INT) {
-                                ASSERTERR(cur, TK_INT_VALUE, "create table - default: Expect int value.");
-                                def.defaultValue = new char[4]; 
-                                *(int*)(def.defaultValue) = cur.value;
-                            } else if (def.type == KT_FLOAT) {
-                                ASSERTERR(cur, TK_FLOAT_VALUE, "create table - default: Expect double value.");
-                                def.defaultValue = new char[8];
-                                *(double*)(def.defaultValue) = cur.doubleValue;
-                            } else if (def.type == KT_STRING) {
-                                ASSERTERR(cur, TK_STRING_VALUE, "create table - default: Expect string value.");
-                                def.defaultValue = new char[def.size];
-                                strcpy(def.defaultValue, cur.identifier.c_str());
-                            } else if (def.type == KT_DATE) {
-                                ASSERTERR(cur, TK_STRING_VALUE, "create table - default: Expect date string.");
-                                def.defaultValue = new char[4];
-                                Date parsed; if (!parse_date(cur.identifier, parsed)) return err("value error: Not a valid date.");
-                                *(Date*)(def.defaultValue) = parsed;
-                            }
-                        }
-                        defs.push_back(def);
-                    } 
-                    peek = lexer.peek();
-                    if (peek.tokenKind == TK_COMMA) lexer.nextToken();
-                    else if (peek.tokenKind == TK_RPAREN) break;
-                    else return err("create table: Expect comma or rparen."); 
-                }
-                // finish analyse keylist
-                cur = lexer.nextToken();
-                ASSERTERR(cur, TK_RPAREN, "create table: Expect RParen.");
-                createTable(name, defs);
-                alterAddPrimaryKey(name, primaries);
-                for (int i=0;i<foreigns.size();i++)
-                    alterAddForeignKey(name, "", foreigns[i], foreignTable[i], foreignName[i]);
-                return PSR_OK;
-            } else {
-                return err("create: Expect keyword DATABASE or TABLE.");
-            }
+            return processCreate();
         }
 
         case TK_DEBUG: {
@@ -514,6 +130,11 @@ ProcessStatementResult KontoTerminal::processStatement() {
                 lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
                 ASSERTERR(cur, TK_IDENTIFIER, "drop table: Expect identifier");
                 dropTable(cur.identifier);
+                return PSR_OK;
+            } else if (peek.tokenKind == TK_INDEX) {
+                lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
+                ASSERTERR(cur, TK_IDENTIFIER, "drop index: Expect identifier");
+                dropIndex(cur.identifier);
                 return PSR_OK;
             } else {
                 return err("drop: Expect keyword DATABASE or TABLE.");
@@ -792,7 +413,12 @@ void KontoTerminal::alterDropColumn(string table, string col) {
     if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
-    handle->alterDropColumn(col);
+    auto res = handle->alterDropColumn(col);
+    if (res==KR_NO_SUCH_COLUMN) {
+        err("alter drop: No such column!");
+        handle->close();
+        return;
+    }
     dropTableIndices(table); saveIndices();
     handle->close();
 }
@@ -802,7 +428,12 @@ void KontoTerminal::alterChangeColumn(string table, string original, const Konto
     if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
-    handle->alterChangeColumn(original, newdef);
+    auto res = handle->alterChangeColumn(original, newdef);
+    if (res==KR_NO_SUCH_COLUMN) {
+        err("alter change: No such column!");
+        handle->close();
+        return;
+    }
     dropTableIndices(table); saveIndices();
     handle->close();
 }
@@ -1052,12 +683,13 @@ void KontoTerminal::createIndex(string idname, string table, const vector<string
     handle->close();
 }
 
-void KontoTerminal::dropIndex(string idname) {
+void KontoTerminal::dropIndex(string idname, string table) {
     if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
     string table;
     int n = indices.size();
     KontoIndexDesc* ptr = nullptr; int position;
-    for (int i=0; i<n; i++) if (indices[i].name == idname) {ptr = &indices[i]; position = i; break;}
+    for (int i=0; i<n; i++) 
+        if (indices[i].name == idname && (table=="" || table==indices[i].table)) {ptr = &indices[i]; position = i; break;}
     if (ptr==nullptr) {PT(1, "Error: No such index!"); return;}
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + ptr->table, &handle);
@@ -1930,4 +1562,500 @@ KontoTerminal* KontoTerminal::instancePtr = nullptr;
 KontoTerminal* KontoTerminal::getInstance(){
     if (instancePtr == nullptr) return instancePtr = new KontoTerminal();
     else return instancePtr;
+}
+
+ProcessStatementResult KontoTerminal::processAlterAdd(string table){
+    Token cur = lexer.nextToken(), peek;
+    if (cur.tokenKind == TK_PRIMARY) {
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_KEY, "alter table add primary: Expect keyword key.");
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_LPAREN, "create table - primary: Expect LParen."); 
+        vector<string> primaries; primaries.clear();
+        while (true) {
+            cur = lexer.nextToken(TE_IDENTIFIER);
+            ASSERTERR(cur, TK_IDENTIFIER, "create table - primary: Expect identifier.");
+            primaries.push_back(cur.identifier);
+            cur = lexer.peek(); 
+            if (cur.tokenKind == TK_COMMA) lexer.nextToken();
+            else if (cur.tokenKind == TK_RPAREN) break;
+            else return err("create table - primary: Expect comma or rparen.");
+        }
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_RPAREN, "create table - primary: Expect RParen.");
+        alterAddPrimaryKey(table, primaries);
+        return PSR_OK;
+    } else if (cur.tokenKind == TK_CONSTRAINT) {
+        string kname = "";
+        if (lexer.peek().tokenKind != TK_PRIMARY) {
+            cur = lexer.nextToken(TE_IDENTIFIER);
+            ASSERTERR(cur, TK_IDENTIFIER, "alter table add constraint: Expect identifier.");
+            kname = cur.identifier;
+            cur = lexer.nextToken();
+        }
+        if (cur.tokenKind == TK_FOREIGN) {
+            vector<string> foreigns; foreigns.clear();
+            string foreignTable;
+            vector<string> foreignName; foreignName.clear();
+            ASSERTERR(cur, TK_FOREIGN, "alter table add constraint: Expect keyword foreign.");
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_KEY, "alter table add constraint: Expect keyword key.");
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_LPAREN, "alter table add constraint - foreign: Expect LParen."); 
+            int cnt = 0;
+            while (true) {
+                cur = lexer.nextToken(TE_IDENTIFIER);
+                ASSERTERR(cur, TK_IDENTIFIER, "alter table add constraint - foreign: Expect identifier.");
+                foreigns.push_back(cur.identifier); cnt++;
+                cur = lexer.peek(); 
+                if (cur.tokenKind == TK_COMMA) lexer.nextToken();
+                else if (cur.tokenKind == TK_RPAREN) break;
+                else return err("alter table add constraint - foreign: Expect comma or rparen.");
+            }
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_RPAREN, "alter table add constraint - foreign: Expect RParen.");
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_REFERENCES, "alter table add constraint - foreign: Expect keyword REFERENCES");
+            cur = lexer.nextToken(TE_IDENTIFIER);
+            ASSERTERR(cur, TK_IDENTIFIER, "alter table add constraint - references: Expect identifier");
+            foreignTable = cur.identifier;
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_LPAREN, "alter table add constraint - references: Expect LParen."); 
+            int ncnt = 0;
+            while (true) {
+                cur = lexer.nextToken(TE_IDENTIFIER);
+                ASSERTERR(cur, TK_IDENTIFIER, "alter table add constraint - references: Expect identifier.");
+                foreignName.push_back(cur.identifier); ncnt++;
+                cur = lexer.peek(); 
+                if (cur.tokenKind == TK_COMMA) lexer.nextToken();
+                else if (cur.tokenKind == TK_RPAREN) break;
+                else return err("alter table add constraint - references: Expect comma or rparen.");
+            }
+            lexer.nextToken();
+            if (ncnt!=cnt) return err("alter table add constraint - foreign: Reference count does not match.");
+            alterAddForeignKey(table, kname, foreigns, foreignTable, foreignName);
+            return PSR_OK;
+        } else if (cur.tokenKind == TK_PRIMARY) {
+            vector<string> cols; cols.clear();
+            ASSERTERR(cur, TK_PRIMARY, "alter table add constraint: Expect keyword primary.");
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_KEY, "alter table add constraint: Expect keyword key.");
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_LPAREN, "alter table add constraint - primary: Expect LParen."); 
+            int cnt = 0;
+            while (true) {
+                cur = lexer.nextToken(TE_IDENTIFIER);
+                ASSERTERR(cur, TK_IDENTIFIER, "alter table add constraint - primary: Expect identifier.");
+                cols.push_back(cur.identifier); cnt++;
+                cur = lexer.peek(); 
+                if (cur.tokenKind == TK_COMMA) lexer.nextToken();
+                else if (cur.tokenKind == TK_RPAREN) break;
+                else return err("alter table add constraint - primary: Expect comma or rparen.");
+            }
+            cur = lexer.nextToken();
+            ASSERTERR(cur, TK_RPAREN, "alter table add constraint - primary: Expect RParen.");
+            alterAddPrimaryKey(table, cols);
+            return PSR_OK;
+        }
+    } else if (cur.tokenKind == TK_INDEX) {
+        cur = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(cur, TK_IDENTIFIER, "alter table add index : Expect identifier");
+        string idname = cur.identifier;
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_LPAREN, "alter table add index: Expect LParen."); 
+        vector<string> cols; cols.clear();
+        while (true) {
+            cur = lexer.nextToken(TE_IDENTIFIER);
+            ASSERTERR(cur, TK_IDENTIFIER, "alter table add index: Expect identifier.");
+            cols.push_back(cur.identifier);
+            cur = lexer.peek(); 
+            if (cur.tokenKind == TK_COMMA) lexer.nextToken();
+            else if (cur.tokenKind == TK_RPAREN) break;
+            else return err("alter table add index: Expect comma or rparen.");
+        }
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_RPAREN, "alter table add index: Expect RParen.");
+        createIndex(idname, table, cols);
+        return PSR_OK;
+    } else if (cur.tokenKind == TK_IDENTIFIER) {
+        KontoCDef def("", TK_INT, 4); def.name = cur.identifier;
+        cur = lexer.nextToken();
+        if (cur.tokenKind == TK_INT) {
+            def.type = KT_INT; def.size = 4;
+            if (lexer.peek().tokenKind == TK_LPAREN) {
+                cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table add col - int: Expect LParen.");
+                cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table add col - int: Expect int value.");
+                cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table add col - int: Expect RParen.");
+            }
+            def.defaultValue = new char[4];
+            *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
+        } else if (cur.tokenKind == TK_FLOAT) {
+            def.type = KT_FLOAT; def.size = 8;
+            def.defaultValue = new char[8];
+            *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
+        } else if (cur.tokenKind == TK_VARCHAR) {
+            def.type = KT_STRING; 
+            cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table add col - varchar: Expect LParen.");
+            cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table add col - varchar: Expect int value.");
+            def.size = cur.value + 1;
+            cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table add col - varchar: Expect RParen.");
+            def.defaultValue = new char[def.size];
+            memset(def.defaultValue, 0, def.size);
+        } else if (cur.tokenKind == TK_DATE) {
+            def.type = KT_DATE; def.size = 4;
+            def.defaultValue = new char[4];
+            *(Date*)(def.defaultValue) = DEFAULT_DATE_VALUE;
+        } else return err("alter table add col: expect a type definition.");
+        peek = lexer.peek();
+        if (peek.tokenKind == TK_NOT) {
+            lexer.nextToken(); cur = lexer.nextToken();
+            ASSERTERR(cur, TK_NULL, "alter table add col - not: Expect keyword NULL");
+            def.nullable = false;
+        }
+        peek = lexer.peek();
+        if (peek.tokenKind == TK_DEFAULT) {
+            lexer.nextToken(); cur = lexer.nextToken(valueTypeToExpectation(def.type));
+            if (def.type == KT_INT) {
+                ASSERTERR(cur, TK_INT_VALUE, "alter table add col - default: Expect int value.");
+                def.defaultValue = new char[4]; 
+                *(int*)(def.defaultValue) = cur.value;
+            } else if (def.type == KT_FLOAT) {
+                ASSERTERR(cur, TK_FLOAT_VALUE, "alter table add col - default: Expect double value.");
+                def.defaultValue = new char[8];
+                *(double*)(def.defaultValue) = cur.doubleValue;
+            } else if (def.type == KT_STRING) {
+                ASSERTERR(cur, TK_STRING_VALUE, "alter table add col - default: Expect string value.");
+                def.defaultValue = new char[def.size];
+                strcpy(def.defaultValue, cur.identifier.c_str());
+            } else if (def.type == KT_DATE) {
+                ASSERTERR(cur, TK_STRING_VALUE, "alter table add col - default: Expect date string.");
+                def.defaultValue = new char[4];
+                Date parsed; if (!parse_date(cur.identifier, parsed)) return err("value error: Not a valid date.");
+                *(Date*)(def.defaultValue) = parsed;
+            }
+        }
+        alterAddColumn(table, def);
+        return PSR_OK;
+    } else {
+        return err("alter table add: Expect PRIMARY or CONSTRAINT or INDEX or identifier.");
+    }
+}
+
+ProcessStatementResult KontoTerminal::processAlterDrop(string table) {
+    Token cur = lexer.nextToken();
+    if (cur.tokenKind == TK_PRIMARY) {
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_KEY, "alter table drop primary: Expect keyword key.");
+        alterDropPrimaryKey(table);
+        return PSR_OK;
+    } else if (cur.tokenKind == TK_FOREIGN) {
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_KEY, "alter table drop foreign: Expect keyword key.");
+        cur = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(cur, TK_IDENTIFIER, "alter table drop foreign: Expect identifier.");
+        alterDropForeignKey(table, cur.identifier);
+        return PSR_OK;
+    } else if (cur.tokenKind == TK_INDEX) {
+        cur = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(cur, TK_IDENTIFIER, "alter table drop index: Expect identifier.");
+        string idname = cur.identifier;
+        dropIndex(idname);
+    } else if (cur.tokenKind == TK_IDENTIFIER) {
+        alterDropColumn(table, cur.identifier);
+        return PSR_OK;
+    } else {
+        return err("alter table drop: Expect PRIMARY or FOREIGN or identifier.");
+    }
+}
+
+ProcessStatementResult KontoTerminal::processCreate(){
+    Token peek = lexer.peek(), cur;
+    if (peek.tokenKind == TK_DATABASE) {
+        lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(cur, TK_IDENTIFIER, "create database: Expect identifier.");
+        createDatabase(cur.identifier);
+        return PSR_OK;
+    } else if (peek.tokenKind == TK_INDEX) {
+        lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(cur, TK_IDENTIFIER, "create index: Expect identifier.");
+        string idname = cur.identifier;
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_ON, "create index: Expect keyword on.");
+        string table = cur.identifier;
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_LPAREN, "create index: Expect LParen."); 
+        vector<string> cols; cols.clear();
+        while (true) {
+            cur = lexer.nextToken(TE_IDENTIFIER);
+            ASSERTERR(cur, TK_IDENTIFIER, "create index: Expect identifier.");
+            cols.push_back(cur.identifier);
+            cur = lexer.peek(); 
+            if (cur.tokenKind == TK_COMMA) lexer.nextToken();
+            else if (cur.tokenKind == TK_RPAREN) break;
+            else return err("create index: Expect comma or rparen.");
+        }
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_RPAREN, "alter table add index: Expect RParen.");
+        createIndex(idname, table, cols);
+        return PSR_OK;
+    } else if (peek.tokenKind == TK_TABLE) {
+        lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(cur, TK_IDENTIFIER, "create table: Expect identifier.");
+        string name = cur.identifier;
+        cur = lexer.nextToken(); 
+        ASSERTERR(cur, TK_LPAREN, "create table: Expect LParen.");
+        // analyse keylist
+        vector<KontoCDef> defs;
+        vector<string> primaries; primaries.clear();
+        vector<vector<string>> foreigns; foreigns.clear();
+        vector<string> foreignTable; foreignTable.clear();
+        vector<vector<string>> foreignName; foreignName.clear();
+        while (true) {
+            peek = lexer.peek();
+            if (peek.tokenKind == TK_RPAREN) break;
+            if (peek.tokenKind == TK_PRIMARY) {
+                lexer.nextToken(); cur = lexer.nextToken();
+                ASSERTERR(cur, TK_KEY, "create table - primary: Expect keyword KEY");
+                cur = lexer.nextToken();
+                ASSERTERR(cur, TK_LPAREN, "create table - primary: Expect LParen."); 
+                while (true) {
+                    cur = lexer.nextToken(TE_IDENTIFIER);
+                    ASSERTERR(cur, TK_IDENTIFIER, "create table - primary: Expect identifier.");
+                    primaries.push_back(cur.identifier);
+                    cur = lexer.peek(); 
+                    if (cur.tokenKind == TK_COMMA) lexer.nextToken();
+                    else if (cur.tokenKind == TK_RPAREN) break;
+                    else return err("create table - primary: Expect comma or rparen.");
+                }
+                cur = lexer.nextToken();
+                ASSERTERR(cur, TK_RPAREN, "create table - primary: Expect RParen.");
+            } else if (peek.tokenKind == TK_FOREIGN) {
+                vector<string> cols; cols.clear();
+                vector<string> refs; refs.clear();
+                lexer.nextToken(); cur = lexer.nextToken();
+                ASSERTERR(cur, TK_KEY, "create table - foreign: Expect keyword KEY");
+                cur = lexer.nextToken();
+                ASSERTERR(cur, TK_LPAREN, "create table - foreign: Expect LParen."); 
+                int cnt = 0;
+                while (true) {
+                    cur = lexer.nextToken(TE_IDENTIFIER);
+                    ASSERTERR(cur, TK_IDENTIFIER, "create table - foreign: Expect identifier.");
+                    cols.push_back(cur.identifier); cnt++;
+                    cur = lexer.peek(); 
+                    if (cur.tokenKind == TK_COMMA) lexer.nextToken();
+                    else if (cur.tokenKind == TK_RPAREN) break;
+                    else return err("create table - foreign: Expect comma or rparen.");
+                }
+                cur = lexer.nextToken();
+                ASSERTERR(cur, TK_RPAREN, "create table - foreign: Expect RParen.");
+                cur = lexer.nextToken();
+                ASSERTERR(cur, TK_REFERENCES, "create table - foreign: Expect keyword REFERENCES");
+                cur = lexer.nextToken(TE_IDENTIFIER);
+                ASSERTERR(cur, TK_IDENTIFIER, "create table - references: Expect identifier");
+                foreignTable.push_back(cur.identifier);
+                cur = lexer.nextToken();
+                ASSERTERR(cur, TK_LPAREN, "create table - references: Expect LParen."); 
+                int ncnt = 0;
+                while (true) {
+                    cur = lexer.nextToken(TE_IDENTIFIER);
+                    ASSERTERR(cur, TK_IDENTIFIER, "create table - references: Expect identifier.");
+                    refs.push_back(cur.identifier); ncnt++;
+                    cur = lexer.peek(); 
+                    if (cur.tokenKind == TK_COMMA) lexer.nextToken();
+                    else if (cur.tokenKind == TK_RPAREN) break;
+                    else return err("create table - references: Expect comma or rparen.");
+                }
+                lexer.nextToken();
+                if (ncnt!=cnt) return err("create table - foreign: Reference count does not match.");
+                foreigns.push_back(cols);
+                foreignName.push_back(refs);
+            } else if (lexer.toExpected(peek, TE_IDENTIFIER).tokenKind == TK_IDENTIFIER) {
+                lexer.nextToken(); 
+                KontoCDef def("", TK_INT, 4); def.name = peek.identifier;
+                cur = lexer.nextToken();
+                if (cur.tokenKind == TK_INT) {
+                    def.type = KT_INT; def.size = 4;
+                    if (lexer.peek().tokenKind == TK_LPAREN) {
+                        cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - int: Expect LParen.");
+                        cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - int: Expect int value.");
+                        cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - int: Expect RParen.");
+                    }
+                    def.defaultValue = new char[4];
+                    *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
+                } else if (cur.tokenKind == TK_FLOAT) {
+                    def.type = KT_FLOAT; def.size = 8;
+                    def.defaultValue = new char[8];
+                    *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
+                } else if (cur.tokenKind == TK_VARCHAR) {
+                    def.type = KT_STRING; 
+                    cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "create table - varchar: Expect LParen.");
+                    cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "create table - varchar: Expect int value.");
+                    def.size = cur.value + 1;
+                    cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "create table - varchar: Expect RParen.");
+                    def.defaultValue = new char[def.size];
+                    memset(def.defaultValue, 0, def.size);
+                } else if (cur.tokenKind == TK_DATE) {
+                    def.type = KT_DATE; def.size = 4;
+                    def.defaultValue = new char[4];
+                    *(Date*)(def.defaultValue) = DEFAULT_DATE_VALUE;
+                } else return err("create table: expect a type definition.");
+                peek = lexer.peek();
+                if (peek.tokenKind == TK_NOT) {
+                    lexer.nextToken(); cur = lexer.nextToken();
+                    ASSERTERR(cur, TK_NULL, "create table - not: Expect keyword NULL");
+                    def.nullable = false;
+                }
+                peek = lexer.peek();
+                if (peek.tokenKind == TK_DEFAULT) {
+                    lexer.nextToken(); cur = lexer.nextToken(valueTypeToExpectation(def.type));
+                    if (def.type == KT_INT) {
+                        ASSERTERR(cur, TK_INT_VALUE, "create table - default: Expect int value.");
+                        def.defaultValue = new char[4]; 
+                        *(int*)(def.defaultValue) = cur.value;
+                    } else if (def.type == KT_FLOAT) {
+                        ASSERTERR(cur, TK_FLOAT_VALUE, "create table - default: Expect double value.");
+                        def.defaultValue = new char[8];
+                        *(double*)(def.defaultValue) = cur.doubleValue;
+                    } else if (def.type == KT_STRING) {
+                        ASSERTERR(cur, TK_STRING_VALUE, "create table - default: Expect string value.");
+                        def.defaultValue = new char[def.size];
+                        strcpy(def.defaultValue, cur.identifier.c_str());
+                    } else if (def.type == KT_DATE) {
+                        ASSERTERR(cur, TK_STRING_VALUE, "create table - default: Expect date string.");
+                        def.defaultValue = new char[4];
+                        Date parsed; if (!parse_date(cur.identifier, parsed)) return err("value error: Not a valid date.");
+                        *(Date*)(def.defaultValue) = parsed;
+                    }
+                }
+                defs.push_back(def);
+            } 
+            peek = lexer.peek();
+            if (peek.tokenKind == TK_COMMA) lexer.nextToken();
+            else if (peek.tokenKind == TK_RPAREN) break;
+            else return err("create table: Expect comma or rparen."); 
+        }
+        // finish analyse keylist
+        cur = lexer.nextToken();
+        ASSERTERR(cur, TK_RPAREN, "create table: Expect RParen.");
+        createTable(name, defs);
+        alterAddPrimaryKey(name, primaries);
+        for (int i=0;i<foreigns.size();i++)
+            alterAddForeignKey(name, "", foreigns[i], foreignTable[i], foreignName[i]);
+        return PSR_OK;
+    } else {
+        return err("create: Expect keyword DATABASE or TABLE.");
+    }
+}
+
+ProcessStatementResult KontoTerminal::processAlterChange(string table) {
+    Token cur = lexer.nextToken(TE_IDENTIFIER), peek; 
+    ASSERTERR(cur, TK_IDENTIFIER, "alter table change: Expect identifier");
+    string old = cur.identifier;
+    KontoCDef def("", TK_INT, 4); def.name = cur.identifier;
+    cur = lexer.nextToken();
+    if (cur.tokenKind == TK_INT) {
+        def.type = KT_INT; def.size = 4;
+        if (lexer.peek().tokenKind == TK_LPAREN) {
+            cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table change - int: Expect LParen.");
+            cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table change - int: Expect int value.");
+            cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table change - int: Expect RParen.");
+        }
+        def.defaultValue = new char[4];
+        *(int*)(def.defaultValue) = DEFAULT_INT_VALUE;
+    } else if (cur.tokenKind == TK_FLOAT) {
+        def.type = KT_FLOAT; def.size = 8;
+        def.defaultValue = new char[8];
+        *(double*)(def.defaultValue) = DEFAULT_FLOAT_VALUE;
+    } else if (cur.tokenKind == TK_VARCHAR) {
+        def.type = KT_STRING; 
+        cur = lexer.nextToken(); ASSERTERR(cur, TK_LPAREN, "alter table change - varchar: Expect LParen.");
+        cur = lexer.nextToken(); ASSERTERR(cur, TK_INT_VALUE, "alter table change - varchar: Expect int value.");
+        def.size = cur.value + 1;
+        cur = lexer.nextToken(); ASSERTERR(cur, TK_RPAREN, "alter table change - varchar: Expect RParen.");
+        def.defaultValue = new char[def.size];
+        memset(def.defaultValue, 0, def.size);
+    } else if (cur.tokenKind == TK_DATE) {
+        def.type = KT_DATE; def.size = 4;
+        def.defaultValue = new char[4];
+        *(Date*)(def.defaultValue) = DEFAULT_DATE_VALUE;
+    } else {
+        return err("alter table change: expect a type definition.");
+    }
+    peek = lexer.peek();
+    if (peek.tokenKind == TK_NOT) {
+        lexer.nextToken(); cur = lexer.nextToken();
+        ASSERTERR(cur, TK_NULL, "alter table change - not: Expect keyword NULL");
+        def.nullable = false;
+    }
+    peek = lexer.peek();
+    if (peek.tokenKind == TK_DEFAULT) {
+        lexer.nextToken(); cur = lexer.nextToken(valueTypeToExpectation(def.type));
+        if (def.type == KT_INT) {
+            ASSERTERR(cur, TK_INT_VALUE, "alter table change - default: Expect int value.");
+            def.defaultValue = new char[4]; 
+            *(int*)(def.defaultValue) = cur.value;
+        } else if (def.type == KT_FLOAT) {
+            ASSERTERR(cur, TK_FLOAT_VALUE, "alter table change - default: Expect double value.");
+            def.defaultValue = new char[8];
+            *(double*)(def.defaultValue) = cur.doubleValue;
+        } else if (def.type == KT_STRING) {
+            ASSERTERR(cur, TK_STRING_VALUE, "alter table change - default: Expect string value.");
+            def.defaultValue = new char[def.size];
+            strcpy(def.defaultValue, cur.identifier.c_str());
+        } else if (def.type == KT_DATE) {
+            ASSERTERR(cur, TK_STRING_VALUE, "alter table add col - default: Expect date string.");
+            def.defaultValue = new char[4];
+            Date parsed; if (!parse_date(cur.identifier, parsed)) return err("value error: Not a valid date.");
+            *(Date*)(def.defaultValue) = parsed;
+        }
+    }
+    alterChangeColumn(table, old, def);
+    return PSR_OK;
+}
+
+ProcessStatementResult KontoTerminal::processAlterRename(string table) {
+    Token cur = lexer.nextToken();
+    if (cur.tokenKind == TK_TO) {
+        Token cur = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(cur, TK_IDENTIFIER, "alter rename: Expect identifier.");
+        string newname = cur.identifier;
+        alterRenameTable(table, newname);
+    } else {
+        Token cur = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(cur, TK_IDENTIFIER, "alter rename: Expect identifier.");
+        string origname = cur.identifier;
+        Token cur = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(cur, TK_TO, "alter rename: Expect keyword To.");
+        Token cur = lexer.nextToken(TE_IDENTIFIER);
+        ASSERTERR(cur, TK_IDENTIFIER, "alter rename: Expect identifier.");
+        string newname = cur.identifier;
+        alterRenameColumn(table, origname, newname);
+    }
+}
+
+void KontoTerminal::alterRenameColumn(string table, string origname, string newname) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
+    KontoTableFile* handle; 
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    auto res = handle->alterRenameColumn(origname, newname);
+    if (res == KR_NO_SUCH_COLUMN) {
+        err("alter rename: No such column!");
+        handle->close();
+        return;
+    }
+    dropTableIndices(table); saveIndices();
+    handle->close();
+}
+
+void KontoTerminal::alterRenameTable(string table, string newname) {
+    if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
+    if (hasTable(newname)) {err("alter rename: already got a table named " + newname + "!"); return;}
+    if (!hasTable(table)) {err("alter rename: no such table called " + table + "!");}
+    for (int i=0;i<tables.size();i++) if (tables[i]==table) tables[i]=table;
+    for (auto& id: indices) if (id.table == table) id.table = newname;
+    KontoTableFile* handle;
+    KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
+    handle->alterRename(currentDatabase + "/" + newname);
+    save_lines(currentDatabase, get_filename(TABLES_FILE), tables);
 }
