@@ -120,7 +120,7 @@ private:
     // 在当前目录下查找已有的索引文件并加载。
     void loadIndices(); 
 
-    void recreatePrimaryIndex();
+    KontoResult recreatePrimaryIndex();
     
 public:
     ~KontoTableFile();
@@ -173,7 +173,7 @@ public:
     // 获取某一条记录，以pos指定，将数据存储到dest中
     KontoResult getDataCopied(const KontoRPos& pos, char* dest);
     // 创建索引表并与该数据表绑定，handle非空时将存储创建的索引表的指针
-    KontoResult createIndex(const vector<KontoKeyIndex>& keyIndices, KontoIndex** handle);
+    KontoResult createIndex(const vector<KontoKeyIndex>& keyIndices, KontoIndex** handle, bool noRepeat);
     // 删除所有索引表
     void removeIndices();
     // 向所有已经关联的索引表中添加记录
@@ -208,7 +208,7 @@ public:
 
     KontoResult getKeyNames(const vector<uint>& keyIndices, vector<string>& out); 
 
-    KontoResult insertIndex(const KontoRPos& pos, KontoIndex* dest);
+    KontoResult insertIndex(const KontoRPos& pos, KontoIndex* dest, bool noRepeat);
 
     void rewriteKeyDefinitions();
 

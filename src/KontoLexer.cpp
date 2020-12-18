@@ -445,6 +445,7 @@ void KontoLexer::addDefaultKeywords(){
     addKeyword("tables", TK_TABLES);
     addKeyword("to", TK_TO);
     addKeyword("on", TK_ON);
+    addKeyword("off", TK_OFF);
 }
 
 void KontoLexer::putback(Token token) {

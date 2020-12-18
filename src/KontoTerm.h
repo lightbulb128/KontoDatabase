@@ -7,8 +7,8 @@
 
 /* SUPPORTED COMMANDS 
 
-alter table [tbname] add constraint [fkname] foreign key (cols) references [ftable] (fcols...)
-TODO ALTER TABLE [TBNAME] ADD CONSTRAINT [PKNAME] PRIMARY KEY (COLS)
+alter table [tbname] add constraint [fkname] foreign key (cols...) references [ftable] (fcols...)
+alter table [tbname] add constraint [pkname] primary key (cols...);
 alter table [tbname] add index [idname] (cols...)
 alter table [tbname] add primary key (cols...)
 alter table [tbname] add [colname] [typedef]
@@ -49,9 +49,9 @@ quit
 select [* or cols] from [tables...] where [wheres...]
 
 show database [dbname]
-shwo databases
+show databases
 show table [tbname]
-shwo tables
+show tables
 
 update [tbname] set [setstmt] where [wheres...]
 
@@ -98,6 +98,7 @@ private:
     vector<KontoIndexDesc> indices;
     KontoTerminal();
     static KontoTerminal* instancePtr;
+    bool commandLine;
 public:
     KontoLexer lexer;
     static KontoTerminal* getInstance();
@@ -140,6 +141,7 @@ public:
     void printWhere(const KontoWhere& where);
     void printWheres(const vector<KontoWhere>& wheres);
     void printQRes(const KontoQRes& qres);
+    void debugEcho(string str);
     TokenExpectation valueTypeToExpectation(KontoKeyType type);
 
     ProcessStatementResult err(string message);

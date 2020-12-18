@@ -442,7 +442,7 @@ KontoQueryResult KontoQueryResult::substract(KontoQueryResult& b) {
     return ret;
 }
 
-KontoResult KontoTableFile::createIndex(const vector<KontoKeyIndex>& keyIndices, KontoIndex** handle) {
+KontoResult KontoTableFile::createIndex(const vector<KontoKeyIndex>& keyIndices, KontoIndex** handle, bool noRepeat) {
     vector<string> opt = vector<string>();
     vector<uint> kpos = vector<uint>();
     vector<uint> ktype = vector<KontoKeyType>();
@@ -458,11 +458,13 @@ KontoResult KontoTableFile::createIndex(const vector<KontoKeyIndex>& keyIndices,
     KontoIndex* ptr;
     KontoResult result = KontoIndex::createIndex(
         indexFilename, &ptr, ktype, kpos, ksize);
-    indices.push_back(ptr);
     KontoQRes q;
     allEntries(q);
-    for (auto item : q.items) 
-        insertIndex(item, ptr);
+    for (auto item : q.items) {
+        auto res = insertIndex(item, ptr, noRepeat);
+        if (res==KR_REPETITION) {ptr->drop(); return KR_REPETITION;}
+    }
+    indices.push_back(ptr);
     if (handle) *handle = ptr;
     return result;
 }
@@ -512,9 +514,15 @@ KontoResult KontoTableFile::insertIndex(const KontoRPos& pos) {
     return KR_OK;
 }
 
-KontoResult KontoTableFile::insertIndex(const KontoRPos& pos, KontoIndex* dest) {
+KontoResult KontoTableFile::insertIndex(const KontoRPos& pos, KontoIndex* dest, bool noRepeat) {
     char* data = new char[recordSize];
     getDataCopied(pos, data);
+    if (checkDeletedFlags(VI(data+4))) {delete[] data; return KR_OK;}
+    if (noRepeat) {
+        KontoRPos tmp;
+        auto res = dest->queryE(data, tmp);
+        if (res == KR_OK) {delete[] data; return KR_REPETITION;}
+    }
     dest->insert(data, pos);
     delete[] data;
     return KR_OK;
@@ -627,14 +635,15 @@ KontoResult KontoTableFile::alterAddPrimaryKey(const vector<uint>& primaryKeys) 
     VIP(ptr) = primaryKeys.size();
     for (auto id : primaryKeys) VIP(ptr) = id;
     pmgr.markDirty(bufindex);
-    recreatePrimaryIndex();
-    return KR_OK;
+    auto res = recreatePrimaryIndex();
+    //cout << "res = " << res << endl;
+    return res;
 }
 
 KontoResult KontoTableFile::alterDropPrimaryKey() {
     if (!hasPrimaryKey()) return KR_NO_PRIMARY;
     int n = indices.size();
-    cout << primaryIndex->getFilename() << endl;
+    //cout << primaryIndex->getFilename() << endl;
     for (int i=0;i<n;i++) 
         if (indices[i]->getFilename() == primaryIndex->getFilename()) {
             indices.erase(indices.begin() + i);
@@ -649,12 +658,12 @@ KontoResult KontoTableFile::alterDropPrimaryKey() {
     return KR_OK;
 }
 
-void KontoTableFile::recreatePrimaryIndex() {
+KontoResult KontoTableFile::recreatePrimaryIndex() {
     int bufindex;
     KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
     KontoPage ptr = metapage + POS_META_PRIMARYCOUNT;
     int n = VIP(ptr);
-    if (n==0) return;
+    if (n==0) return KR_NO_PRIMARY;
     vector<uint> primaryKeys; 
     for (int i=0;i<n;i++) primaryKeys.push_back(VIP(ptr));
     vector<string> primaryKeyNames;
@@ -667,7 +676,14 @@ void KontoTableFile::recreatePrimaryIndex() {
             break;
         }
     }
-    res = createIndex(primaryKeys, &primaryIndex);
+    res = createIndex(primaryKeys, &primaryIndex, true);
+    if (res == KR_REPETITION) {
+        metapage = pmgr.getPage(fileID, 0, bufindex);
+        KontoPage ptr = metapage + POS_META_PRIMARYCOUNT;
+        VIP(ptr) = 0;
+        pmgr.markDirty(bufindex);
+    }
+    return res;
 }
 
 KontoResult KontoTableFile::alterAddColumn(const KontoCDef& def) {
@@ -756,7 +772,7 @@ KontoResult KontoTableFile::alterDropColumn(string name) {
     keys = ret->keys;
     indices.clear();
     recordCount = ret->recordCount;
-    cout << "drop: recordcount " << recordCount << endl;
+    //cout << "drop: recordcount " << recordCount << endl;
     recordSize = ret->recordSize;
     pageCount = ret->pageCount;
     fileID = pmgr.getFileManager().openFile(get_filename(filename).c_str());
@@ -959,7 +975,7 @@ void KontoTableFile::printTableHeader(bool pos) {
         else if (key.type == KT_STRING) s = clamp(MIN_VARCHAR_WIDTH, MAX_VARCHAR_WIDTH, std::max((uint)key.name.length(), key.size-1));
         else if (key.type == KT_DATE) s = clamp(MIN_DATE_WIDTH, MAX_DATE_WIDTH, key.name.length());
         else assert(false);
-        cout << "|" << SS(s, key.name, true);
+        cout << "|" << SS(s, key.name, key.type!=KT_STRING);
     }
     cout << "|" << endl;
 }
@@ -981,7 +997,7 @@ bool KontoTableFile::printTableEntry(const KontoRPos& item, bool pos) {
         else if (key.type == KT_STRING) s = clamp(MIN_VARCHAR_WIDTH, MAX_VARCHAR_WIDTH, std::max((uint)key.name.length(), key.size-1));
         else if (key.type == KT_DATE) s = clamp(MIN_DATE_WIDTH, MAX_DATE_WIDTH, key.name.length());
         else assert(false);
-        cout << SS(s, value_to_string(data + keys[i].position, keys[i].type), true);
+        cout << SS(s, value_to_string(data + keys[i].position, keys[i].type), key.type!=KT_STRING);
     }
     cout << "|" << endl;
     delete[] data;
@@ -1197,7 +1213,7 @@ KontoResult KontoTableFile::checkLegal(char* record, uint checkSingle) {
     if (hasPrimaryKey()) {
         //cout << "chekc primary key" << endl;
         assert(primaryIndex != nullptr);
-        if (primaryIndex->queryE(record, pos) == KR_OK) return KR_PRIMARY_REPETITION;
+        if (primaryIndex->queryE(record, pos) == KR_OK) return KR_REPETITION;
     }
     //cout << "checked primary key" << endl;
     // check nullability
@@ -1330,4 +1346,5 @@ KontoResult KontoTableFile::alterRename(string newname) {
     fileID = pmgr.getFileManager().openFile(fullFilename.c_str());
     for (auto& id : indices) {id->renameTable(newname);}
     filename = newname;
+    return KR_OK;
 }

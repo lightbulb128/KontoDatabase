@@ -87,13 +87,13 @@ ProcessStatementResult KontoTerminal::processStatement() {
                 if (psr == PSR_OK) debugFrom(table, wheres);
                 return psr;
             } else if (cur.tokenKind == TK_STRING_VALUE) {
-                cout << TABS[1] << "DEBUG ECHO: " << cur.identifier << endl;
+                debugEcho(cur.identifier);
                 return PSR_OK;
             } else if (cur.tokenKind == TK_ECHO) {
                 cur = lexer.nextToken(TE_STRING_VALUE);
-                cout << TABS[1] << "DEBUG ECHO: " << cur.identifier << endl;
+                debugEcho(cur.identifier);
                 return PSR_OK;
-            }
+            } else {return PSR_ERR;}
         }
 
         case TK_DELETE: {
@@ -142,8 +142,12 @@ ProcessStatementResult KontoTerminal::processStatement() {
         }
 
         case TK_ECHO: {
-            cur = lexer.nextToken(TE_STRING_VALUE);
-            cout << TABS[1] << "DEBUG ECHO: " << cur.identifier << endl;
+            cur = lexer.nextToken();
+            if (cur.tokenKind == TK_OFF) commandLine = false;
+            else if (cur.tokenKind == TK_ON) commandLine = true;
+            else {
+                debugEcho(cur.identifier);
+            }
             return PSR_OK;
         }
 
@@ -221,17 +225,20 @@ ProcessStatementResult KontoTerminal::processStatement() {
 }
 
 void KontoTerminal::main(bool prompt) {
-    
+    commandLine = prompt;
     lexer.setStream(&std::cin);
     while (true) {
-        if (prompt) cout << ">>> ";
+        if (commandLine) cout << ">>> ";
         ProcessStatementResult psr = processStatement();
         if (psr==PSR_QUIT) break;
         std::cin.clear(); std::cin.ignore(1024, '\n'); lexer.clearBuffer();
     }
 }
 
-KontoTerminal::KontoTerminal() : lexer(true) {currentDatabase = "";}
+KontoTerminal::KontoTerminal() : lexer(true) {
+    currentDatabase = "";
+    commandLine = true;
+}
 
 void KontoTerminal::createDatabase(string dbname) {
     if (directory_exist(dbname)) {
@@ -246,6 +253,7 @@ void KontoTerminal::useDatabase(string dbname) {
         if (file_exist(dbname, "__tables.txt"))
             tables = get_lines(dbname, "__tables.txt");
         else tables.clear();
+        loadIndices();
     } else {
         PT(1, "Error: No such database!");
     }
@@ -326,11 +334,11 @@ void KontoTerminal::showTable(string name) {
     PT(1, "[TABLE " + name + "]");
     cout << TABS[2] << "Records count: " << handle->recordCount << endl;
     PT(1, "[COLUMNS]");
-    cout << TABS[2] << "|" << SS(10, "NAME") << "|" << SS(10, "TYPE") << "|" <<
-        SS(10, "NULL") << "|" <<
+    cout << TABS[2] << "|" << SS(20, "NAME") << "|" << SS(10, "TYPE") << "|" <<
+        SS(10, "NULLABLE") << "|" <<
         SS(30, "DEFAULT") << "|" << endl;
     for (auto& item: handle->keys) {
-        cout << TABS[2] << "|" << SS(10, item.name) << "|"
+        cout << TABS[2] << "|" << SS(20, item.name) << "|"
         << SS(10, type_to_string(item.type, item.size)) << "|"
         << SS(10, bool_to_string(item.nullable)) << "|"
         << SS(30, value_to_string(item.defaultValue, item.type)) << "|" << endl;
@@ -367,6 +375,20 @@ void KontoTerminal::showTable(string name) {
             cout << ")" << endl;
         }
     } else PT(2, "No foreign keys defined.");
+    PT(1, "[INDICES]");
+    bool hasIndex = false;
+    for (const auto& id: indices) {
+        if (id.table != name) continue;
+        hasIndex = true;
+        cout << TABS[2] << id.name << " (";
+        bool first = true;
+        for (const auto& col: id.cols) {
+            if (!first) cout << ", "; first = false;
+            cout << handle->keys[col].name;
+        }
+        cout << ")" << endl;
+    }
+    if (!hasIndex) PT(2, "No indices created."); 
     handle->close();
 }
 
@@ -376,16 +398,18 @@ void KontoTerminal::alterAddPrimaryKey(string table, const vector<string>& cols)
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
     vector<uint> id; id.clear();
+    KontoResult res;
     for (auto& item : cols) {
         uint p;
-        KontoResult res = handle->getKeyIndex(item.c_str(), p);
+        res = handle->getKeyIndex(item.c_str(), p);
         if (res != KR_OK) {
             PT(1, "Error: No such key named " + item + ".");
             return; 
         }
         id.push_back(p);
     }
-    handle->alterAddPrimaryKey(id);
+    res = handle->alterAddPrimaryKey(id);
+    if (res==KR_REPETITION) {err("primary key: Cannot create primary key for there are repetitions.");}
     handle->close();
 }
 
@@ -469,7 +493,8 @@ void KontoTerminal::alterDropForeignKey(string table, string fkname) {
     if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
-    handle->alterDropForeignKey(fkname);
+    auto res = handle->alterDropForeignKey(fkname);
+    if (res==KR_NO_SUCH_FOREIGN) err("Drop foreign: No such foreign key!");
     handle->close();
 }
 
@@ -481,7 +506,9 @@ bool _checkInt(string str) {
 
 bool _checkFloat(string str) {
     int n = str.length();
-    for (int i=0;i<n;i++) if ((str[i]>'9' || str[i]<'0') || (str[i]!='.')) return false;
+    for (int i=0;i<n;i++) 
+        if (!((str[i]<='9' && str[i]>='0') || (str[i]=='.'))) 
+            return false;
     return true;
 }
 
@@ -532,22 +559,27 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
                 }
                 if (i!=n-1) {
                     cur=lexer.nextToken();
-                    if (cur.tokenKind == TK_COMMA) {error=true; err("insert value: Expect comma." + string(" Line ") + to_string(line)); break;}
+                    if (cur.tokenKind != TK_COMMA) {error=true; err("insert values: Expect comma." + string(" Line ") + to_string(line)); break;}
                 }
             }
             while (true) {
                 cur = lexer.peek();
-                if (cur.tokenKind != TK_SEMICOLON && cur.tokenKind != TK_RPAREN) break;
+                if (cur.tokenKind == TK_SEMICOLON || cur.tokenKind == TK_RPAREN) break;
+                cur = lexer.nextToken();
             }
             if (cur.tokenKind == TK_RPAREN) cur = lexer.nextToken();
             if (lexer.peek().tokenKind == TK_COMMA) cur = lexer.nextToken(); 
             if (error) continue;
+            //cout << "before insert" << endl;
             auto result = handle->insert(buffer);
-            if (result == KR_PRIMARY_REPETITION) {
-                err("insert values: Repetition on primary key when inserting #" + to_string(insertedCount) + " value");
+            if (result == KR_REPETITION) {
+                err("insert values: Repetition on primary key when inserting #" + to_string(line) + " value");
                 continue;
             } else if (result == KR_FOREIGN_KEY_FAIL) {
-                err("insert values: Foreign key check failed for #" + to_string(insertedCount) + " value");
+                err("insert values: Foreign key check failed for #" + to_string(line) + " value");
+                continue;
+            } else if (result == KR_NULLABLE_FAIL) {
+                err("insert values: Nullability check failed for #" + to_string(line) + " value");
                 continue;
             }
             insertedCount ++;
@@ -563,17 +595,28 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
         while (true) {
             //cout << "while true " << endl;
             //handle->indices[0]->debugPrint();
+            while (fin.peek()=='\n' || fin.peek()==' ' || fin.peek()=='\r')
+                fin.get();
             if (fin.eof()) break;
             line++;
+            //if (line>10) break;
             bool error = false;
             int n = handle->keys.size();
             for (int i=0;i<n;i++) {
                 const auto& key = handle->keys[i];
                 string value;
                 char b[2048]; 
-                if (i!=n-1) {fin.get(b, 2048, ','); value=b;}
-                else {fin.get(b, 2048, '\n'); value=b; if (value[value.length()-1]==',') value=value.substr(0, value.length()-1);}
-                value = b;
+                if (i!=n-1) {
+                    fin.get(b, 2048, ','); 
+                    value=b;
+                } else {
+                    fin.get(b, 2048, '\n'); 
+                    value=b; 
+                    if (value[value.length()-1]==',') {
+                        value=value.substr(0, value.length()-1);
+                    }
+                }
+                //cout << "value: " << i << " - " << value << endl;
                 switch (key.type) {
                     case KT_INT: {
                         int pos = value.find('#');
@@ -598,24 +641,24 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
                     default:
                         error=true; err("insert from file - type error: Unidentified type." + string(" Line ") + to_string(line)); break;
                 }
+                if (error) break;
                 if (i!=n-1) {
                     value = fin.get();
                     //cout << i << " value : " << int(value[0]);
                     if (value != ",") {error=true; err("insert from file: Expect comma." + string(" Line ") + to_string(line)); break;}
                 } else {if (fin.peek() == ',') fin.get();}
             }
-            if (error) continue; 
-            auto result = handle->insert(buffer);
-            if (result == KR_PRIMARY_REPETITION) {
-                handle->close();
-                err("insert from file: Repetition on primary key when inserting #" + to_string(insertedCount) + " value");
-                continue;
-            } else if (result == KR_FOREIGN_KEY_FAIL) {
-                handle->close();
-                err("insert from file: Foreign key check failed for #" + to_string(insertedCount) + " value");
-                continue;
+            if (!error) {
+                auto result = handle->insert(buffer);
+                if (result == KR_REPETITION) {
+                    err("insert from file: Repetition on primary key when inserting #" + to_string(line) + " value");
+                } else if (result == KR_FOREIGN_KEY_FAIL) {
+                    err("insert from file: Foreign key check failed for #" + to_string(line) + " value");
+                } else if (result == KR_NULLABLE_FAIL) {
+                    err("insert values: Nullability check failed for #" + to_string(line) + " value");
+                } else insertedCount ++;
             }
-            insertedCount ++;
+            while (fin.peek()!=EOF && fin.peek()!='\n') fin.get();
         }
         //cout << "close" << endl;
         fin.close();
@@ -663,16 +706,19 @@ void KontoTerminal::createIndex(string idname, string table, const vector<string
     KontoTableFile* handle; 
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
     vector<uint> colids; colids.clear();
+    KontoResult res;
     for (auto& item: cols) {
         uint p;
-        KontoResult res = handle->getKeyIndex(item.c_str(), p);
+        res = handle->getKeyIndex(item.c_str(), p);
         if (res!=KR_OK) {PT(1, "Error: No such column called " + item); return;}
         colids.push_back(p);
     }
-    if (handle->createIndex(colids, nullptr)!=KR_OK) {
-        PT(1, "Error: Create index failed.");
+    res = handle->createIndex(colids, nullptr, false);
+    if (res == KR_INDEX_ALREADY_EXISTS) {
+        PT(1, "Error: Index already exists.");
+        handle->close();
         return;
-    };
+    }
     KontoIndexDesc desc{
         .name = idname,
         .table = table,
@@ -685,7 +731,6 @@ void KontoTerminal::createIndex(string idname, string table, const vector<string
 
 void KontoTerminal::dropIndex(string idname, string table) {
     if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
-    string table;
     int n = indices.size();
     KontoIndexDesc* ptr = nullptr; int position;
     for (int i=0; i<n; i++) 
@@ -1543,7 +1588,7 @@ ProcessStatementResult KontoTerminal::processUpdate(string tbname) {
                     break;
             }
             //cout << "edit fin" << endl;
-            if (res == KR_PRIMARY_REPETITION) {
+            if (res == KR_REPETITION) {
                 handle->close(); 
                 return err("Error: Primary key unique constraint failed.");
             } else if (res == KR_FOREIGN_KEY_FAIL) {
@@ -1739,6 +1784,7 @@ ProcessStatementResult KontoTerminal::processAlterAdd(string table){
     } else {
         return err("alter table add: Expect PRIMARY or CONSTRAINT or INDEX or identifier.");
     }
+    return PSR_OK;
 }
 
 ProcessStatementResult KontoTerminal::processAlterDrop(string table) {
@@ -1766,6 +1812,7 @@ ProcessStatementResult KontoTerminal::processAlterDrop(string table) {
     } else {
         return err("alter table drop: Expect PRIMARY or FOREIGN or identifier.");
     }
+    return PSR_OK;
 }
 
 ProcessStatementResult KontoTerminal::processCreate(){
@@ -1776,11 +1823,13 @@ ProcessStatementResult KontoTerminal::processCreate(){
         createDatabase(cur.identifier);
         return PSR_OK;
     } else if (peek.tokenKind == TK_INDEX) {
+        if (currentDatabase == "") return err("create table: Not using a database!");
         lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
         ASSERTERR(cur, TK_IDENTIFIER, "create index: Expect identifier.");
         string idname = cur.identifier;
         cur = lexer.nextToken();
         ASSERTERR(cur, TK_ON, "create index: Expect keyword on.");
+        cur = lexer.nextToken(TE_IDENTIFIER);
         string table = cur.identifier;
         cur = lexer.nextToken();
         ASSERTERR(cur, TK_LPAREN, "create index: Expect LParen."); 
@@ -1799,6 +1848,7 @@ ProcessStatementResult KontoTerminal::processCreate(){
         createIndex(idname, table, cols);
         return PSR_OK;
     } else if (peek.tokenKind == TK_TABLE) {
+        if (currentDatabase == "") return err("create table: Not using a database!");
         lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
         ASSERTERR(cur, TK_IDENTIFIER, "create table: Expect identifier.");
         string name = cur.identifier;
@@ -2020,16 +2070,17 @@ ProcessStatementResult KontoTerminal::processAlterRename(string table) {
         ASSERTERR(cur, TK_IDENTIFIER, "alter rename: Expect identifier.");
         string newname = cur.identifier;
         alterRenameTable(table, newname);
+        return PSR_OK;
     } else {
-        Token cur = lexer.nextToken(TE_IDENTIFIER);
         ASSERTERR(cur, TK_IDENTIFIER, "alter rename: Expect identifier.");
         string origname = cur.identifier;
-        Token cur = lexer.nextToken(TE_IDENTIFIER);
+        cur = lexer.nextToken();
         ASSERTERR(cur, TK_TO, "alter rename: Expect keyword To.");
-        Token cur = lexer.nextToken(TE_IDENTIFIER);
+        cur = lexer.nextToken(TE_IDENTIFIER);
         ASSERTERR(cur, TK_IDENTIFIER, "alter rename: Expect identifier.");
         string newname = cur.identifier;
         alterRenameColumn(table, origname, newname);
+        return PSR_OK;
     }
 }
 
@@ -2052,10 +2103,15 @@ void KontoTerminal::alterRenameTable(string table, string newname) {
     if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
     if (hasTable(newname)) {err("alter rename: already got a table named " + newname + "!"); return;}
     if (!hasTable(table)) {err("alter rename: no such table called " + table + "!");}
-    for (int i=0;i<tables.size();i++) if (tables[i]==table) tables[i]=table;
+    for (int i=0;i<tables.size();i++) if (tables[i]==table) tables[i]=newname;
     for (auto& id: indices) if (id.table == table) id.table = newname;
     KontoTableFile* handle;
     KontoTableFile::loadFile(currentDatabase + "/" + table, &handle);
     handle->alterRename(currentDatabase + "/" + newname);
     save_lines(currentDatabase, get_filename(TABLES_FILE), tables);
+    saveIndices();
+}
+
+void KontoTerminal::debugEcho(string str) {
+    cout << "====================" << str << "====================" << endl;
 }

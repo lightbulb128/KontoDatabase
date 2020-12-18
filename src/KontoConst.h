@@ -60,7 +60,7 @@ enum KontoResult {
     KR_DATABASE_NAME_EXISTS     = 0x00000302,
     // ERROR ABOUT PRIMARY KEY  
     KR_PRIMARY_REDECLARATION    = 0x00000400,
-    KR_PRIMARY_REPETITION       = 0x00000401,
+    KR_REPETITION       = 0x00000401,
     KR_NO_PRIMARY               = 0x00000402,
     KR_NO_SUCH_FOREIGN          = 0x00000403,
     // ERROR ABOUT CONSTRAINTS  
@@ -96,7 +96,7 @@ const string _key_type_strs[4] = {"kint", "kstring", "kfloat", "kdate"};
 typedef uint Date;
 
 const int DEFAULT_INT_VALUE = 0;
-const double DEFAULT_FLOAT_VALUE = std::nan("");
+const double DEFAULT_FLOAT_VALUE = -1e23;
 const char* const DEFAULT_STRING_VALUE = "";
 const Date DEFAULT_DATE_VALUE = 0;
 const char* const DEFAULT_DATE_VALUE_STRING = "0-1-1";
