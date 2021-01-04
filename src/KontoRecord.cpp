@@ -796,6 +796,7 @@ KontoResult KontoTableFile::alterChangeColumn(string original, const KontoCDef& 
 void KontoTableFile::rewriteKeyDefinitions() {
     int bufindex;
     KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
+    //cout << "rew key def " << VI(metapage + POS_META_FOREIGNS) << endl;
     char* ptr = metapage + POS_FIELDS;
     int fc = VI(metapage + POS_META_FIELDCOUNT);
     for (int i=0;i<fc;i++) {
@@ -834,6 +835,7 @@ KontoResult KontoTableFile::alterAddForeignKey(string name, const vector<uint>& 
     KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
     char* ptr = metapage + POS_META_FOREIGNS;
     int n = VI(ptr); VIP(ptr) = n+1; 
+    //cout << "n = " << n << endl;
     char buffer[PAGE_SIZE];
     while (n--) {
         int c = VIP(ptr); 
@@ -900,7 +902,7 @@ void KontoTableFile::getForeignKeys(
     int bufindex;
     KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
     char* ptr = metapage + POS_META_FOREIGNS;
-    int n = VIP(ptr);
+    int n = VIP(ptr); cout << "get primary keys of " << filename << " " << n << endl;
     while (n--) {
         int c = VIP(ptr);
         vector<uint> curcols; curcols.clear();
@@ -1236,7 +1238,8 @@ KontoResult KontoTableFile::checkLegal(char* record, uint checkSingle) {
     int bufindex;
     KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
     char* ptr = metapage + POS_META_FOREIGNS;
-    int n = VIP(ptr); 
+    int n = VIP(ptr);
+    //cout << "check foreign key n = " << n << endl;
     //cout << "n = " << n << endl;
     string tableName, constraintName;
     vector<uint> cols; vector<string> foreignNames;
@@ -1246,6 +1249,7 @@ KontoResult KontoTableFile::checkLegal(char* record, uint checkSingle) {
         char* bef = ptr;
         flag = checkSingle == -1;
         int c = VIP(ptr); cols.clear();
+        foreignNames.clear();
         for (int i=0;i<c;i++) {
             cols.push_back(VIP(ptr)); 
             if (cols[cols.size()-1]==checkSingle) flag=true;
@@ -1260,10 +1264,12 @@ KontoResult KontoTableFile::checkLegal(char* record, uint checkSingle) {
         //cout << "flag = " << flag << endl;
         if (!flag) continue;
         KontoResult foreignCheck = checkForeignKey(record, cols, tableName, foreignNames);
+        //cout << "foreignCheck in " << filename << "(" << cols[0] << tableName << foreignNames[0] << ") = " << foreignCheck << endl;
         if (foreignCheck == KR_FOREIGN_KEY_FAIL) return foreignCheck;
         if (foreignCheck == KR_FOREIGN_TABLE_NONEXIST || foreignCheck == KR_FOREIGN_COLUMN_UNMATCH) 
             toDrop.push_back(constraintName);
     }
+    //cout << "check foreign keyx n = " << VI(metapage + POS_META_FOREIGNS) << endl;
     //cout << "checked foreign key" << endl;
     for (auto& item : toDrop) alterDropForeignKey(item);
     return KR_OK;

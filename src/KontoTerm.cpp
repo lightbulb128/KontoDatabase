@@ -500,13 +500,15 @@ void KontoTerminal::alterDropForeignKey(string table, string fkname) {
 
 bool _checkInt(string str) {
     int n = str.length();
-    for (int i=0;i<n;i++) if (str[i]>'9' || str[i]<'0') return false;
+    int st = 0; if (n > 0 && str[0]=='-') st++;
+    for (int i=st;i<n;i++) if (str[i]>'9' || str[i]<'0') return false;
     return true;
 }
 
 bool _checkFloat(string str) {
     int n = str.length();
-    for (int i=0;i<n;i++) 
+    int st = 0; if (n > 0 && str[0]=='-') st++;
+    for (int i=st;i<n;i++) 
         if (!((str[i]<='9' && str[i]>='0') || (str[i]=='.'))) 
             return false;
     return true;
@@ -592,6 +594,7 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
         int insertedCount = 0;
         std::ifstream fin(cur.identifier);
         int line = 0;
+        const char delim = '|'; const string delims = "|";
         while (true) {
             //cout << "while true " << endl;
             //handle->indices[0]->debugPrint();
@@ -607,12 +610,14 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
                 string value;
                 char b[2048]; 
                 if (i!=n-1) {
-                    fin.get(b, 2048, ','); 
-                    value=b;
+                    if (fin.peek()==delim) value=""; else {
+                        fin.get(b, 2048, delim); 
+                        value=b;
+                    }
                 } else {
                     fin.get(b, 2048, '\n'); 
                     value=b; 
-                    if (value[value.length()-1]==',') {
+                    if (value[value.length()-1]==delim) {
                         value=value.substr(0, value.length()-1);
                     }
                 }
@@ -645,8 +650,8 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
                 if (i!=n-1) {
                     value = fin.get();
                     //cout << i << " value : " << int(value[0]);
-                    if (value != ",") {error=true; err("insert from file: Expect comma." + string(" Line ") + to_string(line)); break;}
-                } else {if (fin.peek() == ',') fin.get();}
+                    if (value != delims) {error=true; err("insert from file: Expect comma." + string(" Line ") + to_string(line)); break;}
+                } else {if (fin.peek() == delim) fin.get();}
             }
             if (!error) {
                 auto result = handle->insert(buffer);
@@ -1615,19 +1620,19 @@ ProcessStatementResult KontoTerminal::processAlterAdd(string table){
         cur = lexer.nextToken();
         ASSERTERR(cur, TK_KEY, "alter table add primary: Expect keyword key.");
         cur = lexer.nextToken();
-        ASSERTERR(cur, TK_LPAREN, "create table - primary: Expect LParen."); 
+        ASSERTERR(cur, TK_LPAREN, "alter table - primary: Expect LParen."); 
         vector<string> primaries; primaries.clear();
         while (true) {
             cur = lexer.nextToken(TE_IDENTIFIER);
-            ASSERTERR(cur, TK_IDENTIFIER, "create table - primary: Expect identifier.");
+            ASSERTERR(cur, TK_IDENTIFIER, "alter table - primary: Expect identifier.");
             primaries.push_back(cur.identifier);
             cur = lexer.peek(); 
             if (cur.tokenKind == TK_COMMA) lexer.nextToken();
             else if (cur.tokenKind == TK_RPAREN) break;
-            else return err("create table - primary: Expect comma or rparen.");
+            else return err("alter table - primary: Expect comma or rparen.");
         }
         cur = lexer.nextToken();
-        ASSERTERR(cur, TK_RPAREN, "create table - primary: Expect RParen.");
+        ASSERTERR(cur, TK_RPAREN, "alter table - primary: Expect RParen.");
         alterAddPrimaryKey(table, primaries);
         return PSR_OK;
     } else if (cur.tokenKind == TK_CONSTRAINT) {
@@ -1848,6 +1853,7 @@ ProcessStatementResult KontoTerminal::processCreate(){
         createIndex(idname, table, cols);
         return PSR_OK;
     } else if (peek.tokenKind == TK_TABLE) {
+        //cout << "create table" << endl;
         if (currentDatabase == "") return err("create table: Not using a database!");
         lexer.nextToken(); cur = lexer.nextToken(TE_IDENTIFIER);
         ASSERTERR(cur, TK_IDENTIFIER, "create table: Expect identifier.");
@@ -1989,6 +1995,7 @@ ProcessStatementResult KontoTerminal::processCreate(){
         ASSERTERR(cur, TK_RPAREN, "create table: Expect RParen.");
         createTable(name, defs);
         alterAddPrimaryKey(name, primaries);
+        //cout << "foreigns = " << foreigns.size() << endl;
         for (int i=0;i<foreigns.size();i++)
             alterAddForeignKey(name, "", foreigns[i], foreignTable[i], foreignName[i]);
         return PSR_OK;

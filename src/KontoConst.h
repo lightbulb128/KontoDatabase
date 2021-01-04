@@ -95,7 +95,7 @@ const string _key_type_strs[4] = {"kint", "kstring", "kfloat", "kdate"};
 
 typedef uint Date;
 
-const int DEFAULT_INT_VALUE = 0;
+const int DEFAULT_INT_VALUE = -2147483648;
 const double DEFAULT_FLOAT_VALUE = -1e23;
 const char* const DEFAULT_STRING_VALUE = "";
 const Date DEFAULT_DATE_VALUE = 0;
