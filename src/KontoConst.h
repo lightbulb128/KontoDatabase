@@ -71,6 +71,11 @@ enum KontoResult {
     KR_FOREIGN_COLUMN_UNMATCH   = 0x00000503
 };
 
+/** where项支持的运算符。其中
+ * equal, not_equal, less, less_equal, greater, greater_equal 为普通的运算符。
+ * 而 lcrc, lorc, lcro, loro 表示区间范围比较，o 表示开区间，c 表示闭区间，例如
+ * val > a and val <= b 被组合为 a < val <= b，运算符类型就是 lorc 左开右闭。
+ * */
 enum OperatorType {
     OP_EQUAL,
     OP_NOT_EQUAL,

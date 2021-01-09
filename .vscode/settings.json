@@ -1,5 +1,5 @@
 {
-    "editor.fontFamily": "Consolas, monospace",
+    "editor.fontFamily": "Roboto Mono, SimHei, monospace",
     "editor.fontSize": 14,
     "files.associations": {
         "iostream": "cpp",
