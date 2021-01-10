@@ -175,7 +175,7 @@ KontoResult KontoTableFile::insertEntry(KontoRPos* pos) {
     KontoRPos rec;
     bool found = (1 + VI(meta + POS_META_LASTPAGE)) * recordSize <= PAGE_SIZE;
     if (!found) {
-        meta[POS_META_PAGECOUNT] = ++pageCount;
+        VI(meta + POS_META_PAGECOUNT) = ++pageCount;
         rec = KontoRPos(pageCount-1, 0);
         VI(meta + POS_META_LASTPAGE) = 1;
     } else {
@@ -902,7 +902,8 @@ void KontoTableFile::getForeignKeys(
     int bufindex;
     KontoPage metapage = pmgr.getPage(fileID, 0, bufindex);
     char* ptr = metapage + POS_META_FOREIGNS;
-    int n = VIP(ptr); cout << "get primary keys of " << filename << " " << n << endl;
+    int n = VIP(ptr);
+    // cout << "get primary keys of " << filename << " " << n << endl;
     while (n--) {
         int c = VIP(ptr);
         vector<uint> curcols; curcols.clear();

@@ -466,6 +466,7 @@ void KontoTerminal::alterAddForeignKey(string table, string fkname,
     const vector<string>& cols, string foreignTable, 
     const vector<string>& foreignNames) 
 {
+    //cout << "alteraddforeign" << endl;
     if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
     if (!hasTable(table)) {PT(1, "Error: No such table!"); return;}
     KontoTableFile* handle; 
@@ -676,11 +677,13 @@ ProcessStatementResult KontoTerminal::processInsert(string tbname) {
 void KontoTerminal::loadIndices() {
     if (currentDatabase == "") {PT(1, "Error: Not using a database!");return;}
     indices.clear();
-    if (!file_exist(currentDatabase, INDICES_FILE)) return;
+    if (!file_exist(currentDatabase, get_filename(INDICES_FILE))) return;
     std::ifstream fin(get_filename(currentDatabase + "/" + INDICES_FILE));
     while (!fin.eof()) {
         KontoIndexDesc desc;
-        fin >> desc.name; fin >> desc.table;
+        fin >> desc.name; 
+        if (fin.eof()) break;
+        fin >> desc.table;
         int n; fin >> n;
         desc.cols.clear();
         while (n--) {int p; fin>>p; desc.cols.push_back(p);}
@@ -1644,6 +1647,7 @@ ProcessStatementResult KontoTerminal::processAlterAdd(string table){
             cur = lexer.nextToken();
         }
         if (cur.tokenKind == TK_FOREIGN) {
+            //cout << "xxx foreign xx" << endl;
             vector<string> foreigns; foreigns.clear();
             string foreignTable;
             vector<string> foreignName; foreignName.clear();
